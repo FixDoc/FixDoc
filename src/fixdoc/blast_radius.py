@@ -92,6 +92,8 @@ ACTION_POINTS = {
     "create": 8,
 }
 
+_ACTIONABLE_ACTIONS = frozenset({"create", "update", "delete", "replace"})
+
 # Discount multipliers for all-create (greenfield) plans.
 # Creating new resources poses lower risk than modifying existing ones.
 GREENFIELD_MULTIPLIER = 0.3           # non-boundary creates
@@ -144,6 +146,12 @@ class BlastResult:
     checks: list[str] = field(default_factory=list)
     history_matches: list[dict] = field(default_factory=list)
     plan_summary: dict = field(default_factory=dict)
+    resource_warnings: list[dict] = field(default_factory=list)
+
+
+def is_actionable_change(node: BlastNode) -> bool:
+    """Return True if this node represents a real infrastructure change."""
+    return node.action in _ACTIONABLE_ACTIONS
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +511,124 @@ def compute_history_prior(
 
 
 # ---------------------------------------------------------------------------
+# Tribal knowledge: prior fixes for changed resource types
+# ---------------------------------------------------------------------------
+
+
+def find_resource_prior_fixes(
+    nodes: list[BlastNode],
+    repo: FixRepository,
+    max_total: int = 10,
+    tag_only: bool = False,
+) -> list[dict]:
+    """Surface relevant past fixes for all actionable changed resource types.
+
+    Returns a ranked list of warning dicts (capped at max_total), each with:
+      id, short_id, issue, resolution, tags, created_at, match_reason,
+      score, matched_resources.
+
+    Scoring tiers:
+      100 - tag_match: fix is tagged with the resource type
+       60 - text_match: resource type appears as a whole word in fix text
+    """
+    actionable = [n for n in nodes if is_actionable_change(n)]
+    if not actionable:
+        return []
+
+    # Collect unique resource types
+    unique_rts: list[str] = []
+    seen_rts: set[str] = set()
+    for node in actionable:
+        rt = (node.resource_type or "").strip().lower()
+        if rt and rt not in seen_rts:
+            seen_rts.add(rt)
+            unique_rts.append(rt)
+
+    if not unique_rts:
+        return []
+
+    # Build type_cache: rt -> list of (fix, match_reason, score)
+    type_cache: dict[str, list[tuple]] = {}
+
+    if tag_only:
+        for rt in unique_rts:
+            matches = []
+            for fix in repo.find_by_resource_type(rt):
+                matches.append((fix, "tag_match", 100))
+            type_cache[rt] = matches
+    else:
+        all_fixes = repo.list_all()
+        # Pre-compile regex per rt
+        rt_patterns = {
+            rt: re.compile(r'\b' + re.escape(rt) + r'\b', re.IGNORECASE)
+            for rt in unique_rts
+        }
+        for rt in unique_rts:
+            tag_match_ids: set[str] = set()
+            matches = []
+            for fix in repo.find_by_resource_type(rt):
+                tag_match_ids.add(fix.id)
+                matches.append((fix, "tag_match", 100))
+            pattern = rt_patterns[rt]
+            for fix in all_fixes:
+                if fix.id in tag_match_ids:
+                    continue
+                searchable = (fix.issue or "") + " " + (fix.resolution or "") + " " + (fix.error_excerpt or "")
+                if pattern.search(searchable):
+                    matches.append((fix, "text_match", 60))
+            type_cache[rt] = matches
+
+    # Aggregate: one entry per fix id; highest score/reason wins
+    # Build map: fix_id -> warning dict
+    warnings_by_fix_id: dict[str, dict] = {}
+
+    for node in actionable:
+        rt = (node.resource_type or "").strip().lower()
+        if not rt:
+            continue
+        for fix, reason, score in type_cache.get(rt, []):
+            if fix.id not in warnings_by_fix_id:
+                warnings_by_fix_id[fix.id] = {
+                    "id": fix.id,
+                    "short_id": fix.id[:8],
+                    "issue": fix.issue,
+                    "resolution": fix.resolution,
+                    "tags": fix.tags or "",
+                    "created_at": fix.created_at or "",
+                    "match_reason": reason,
+                    "score": score,
+                    "matched_resources": [{"address": node.address, "action": node.action}],
+                }
+            else:
+                entry = warnings_by_fix_id[fix.id]
+                # Upgrade score/reason if this match is higher tier
+                if score > entry["score"]:
+                    entry["score"] = score
+                    entry["match_reason"] = reason
+                # Add resource if not already listed
+                existing_addrs = {r["address"] for r in entry["matched_resources"]}
+                if node.address not in existing_addrs:
+                    entry["matched_resources"].append({"address": node.address, "action": node.action})
+
+    if not warnings_by_fix_id:
+        return []
+
+    # Sort: (-score, -created_at DESC, id ASC) using stable multi-pass sort
+    # Pass 1: id ASC (stable baseline)
+    sorted_warnings = sorted(warnings_by_fix_id.values(), key=lambda w: w["id"])
+    # Pass 2: created_at DESC (stable, ties broken by id from pass 1)
+    sorted_warnings.sort(key=lambda w: (w["created_at"] or ""), reverse=True)
+    # Pass 3: score DESC (stable, ties broken by date then id from earlier passes)
+    sorted_warnings.sort(key=lambda w: -w["score"])
+
+    # Sort matched_resources by address
+    for w in sorted_warnings:
+        w["matched_resources"].sort(key=lambda r: r["address"])
+
+    return sorted_warnings[:max_total]
+
+
+# ---------------------------------------------------------------------------
 # Redaction
 # ---------------------------------------------------------------------------
 
@@ -596,6 +722,8 @@ def analyze_blast_radius(
     repo: FixRepository,
     dot_text: Optional[str] = None,
     max_depth: int = 5,
+    tag_only: bool = False,
+    max_resource_warnings: int = 10,
 ) -> BlastResult:
     """Run a full blast radius analysis on a Terraform plan.
 
@@ -604,6 +732,8 @@ def analyze_blast_radius(
         repo: FixRepository for history lookup.
         dot_text: Optional DOT graph text from `terraform graph`.
         max_depth: Max BFS traversal depth.
+        tag_only: Only surface tribal warnings from tag-matched fixes.
+        max_resource_warnings: Max number of tribal knowledge warnings.
 
     Returns:
         BlastResult with score, severity, affected resources, etc.
@@ -671,18 +801,44 @@ def analyze_blast_radius(
     all_affected: list[AffectedResource] = []
 
     if dot_text and nodes:
-        _forward, reverse = parse_dot_graph(dot_text)
-        # Use reverse adjacency only: reverse[X] = things that depend on X.
+        forward, reverse = parse_dot_graph(dot_text)
+        # Use reverse adjacency: reverse[X] = things that depend on X.
         # This ensures BFS traverses downstream dependents, not upstream
         # dependencies (subnet, VPC) that are not impacted by a change to X.
-        l1_affected, l2_affected = compute_tiered_affected(
-            nodes, reverse, max_depth
-        )
+        #
+        # Special case for control-point nodes (IAM policy, RBAC, network):
+        # These attach TO a parent resource (e.g. aws_iam_role_policy → role)
+        # via a forward edge, but nothing depends on the policy itself.
+        # The impact flows through the shared parent to all its consumers.
+        # Seed BFS from one forward hop of each control-point node so those
+        # consumers are reachable.
+        changed_addrs = {n.address for n in nodes}
+        extra_seeds: set[str] = set()
+        for node in nodes:
+            if node.is_control_point:
+                for dep in forward.get(node.address, set()):
+                    if dep not in changed_addrs:
+                        extra_seeds.add(dep)
+
+        has_boundary = any(is_boundary_resource(n.resource_type) for n in nodes)
+        has_destructive = any(n.action in ("delete", "replace") for n in nodes)
+
+        bfs_starts = [n.address for n in nodes] + list(extra_seeds)
+        all_ar = compute_affected_set(bfs_starts, reverse, max_depth=max_depth)
+        l1_affected = [ar for ar in all_ar if ar.depth == 1]
+        l2_affected = [ar for ar in all_ar if ar.depth >= 2]
+        if not (has_boundary or has_destructive):
+            l2_affected = []
         all_affected = l1_affected + l2_affected
 
     # History prior
     changed_types = list({n.resource_type for n in nodes})
     history_count, history_matches = compute_history_prior(changed_types, nodes, repo)
+
+    # Tribal knowledge: surface prior fixes for all changed resource types
+    resource_warnings = find_resource_prior_fixes(
+        nodes, repo, max_total=max_resource_warnings, tag_only=tag_only
+    )
 
     # Blast score — linear formula.
     # Filter L1/L2 to only count resources NOT in the plan itself, so that
@@ -751,6 +907,7 @@ def analyze_blast_radius(
         checks=checks,
         history_matches=history_matches,
         plan_summary=plan_summary,
+        resource_warnings=resource_warnings,
     )
 
 

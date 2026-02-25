@@ -19,6 +19,8 @@ from fixdoc.blast_radius import (
     redact_plan_values,
     generate_checks,
     analyze_blast_radius,
+    find_resource_prior_fixes,
+    is_actionable_change,
     BlastNode,
     BlastResult,
     _normalize_tf_node,
@@ -1071,6 +1073,34 @@ class TestEndToEnd:
         assert result.control_points[0]["category"] == "network"
         assert any("security group" in c for c in result.checks)
 
+    def test_iam_policy_propagates_through_role_to_instance(self, tmp_path):
+        """IAM policy update should surface instance profile and EC2 as impacted.
+
+        Graph: aws_iam_role_policy.inline -> aws_iam_role.app_role
+               aws_iam_instance_profile.profile -> aws_iam_role.app_role
+               aws_instance.app -> aws_iam_instance_profile.profile
+
+        Changed: aws_iam_role_policy.inline (update)
+        Expected impacted: aws_iam_instance_profile.profile (L1), aws_instance.app (L2)
+        """
+        repo = FixRepository(tmp_path)
+        plan = make_plan([
+            make_resource_change(
+                "aws_iam_role_policy.inline", "aws_iam_role_policy", ["update"]
+            ),
+        ])
+        dot = """digraph G {
+  rankdir = "RL";
+  "aws_iam_instance_profile.profile" -> "aws_iam_role.app_role";
+  "aws_iam_role_policy.inline" -> "aws_iam_role.app_role";
+  "aws_instance.app" -> "aws_iam_instance_profile.profile";
+}"""
+        result = analyze_blast_radius(plan, repo, dot_text=dot)
+        affected_addrs = {a["address"] for a in result.affected}
+        assert "aws_iam_instance_profile.profile" in affected_addrs
+        assert "aws_instance.app" in affected_addrs
+        assert result.score > 7.5  # higher than without graph propagation
+
     def test_no_changes_scenario(self, tmp_path):
         """Plan with only no-op changes has zero score."""
         repo = FixRepository(tmp_path)
@@ -1084,3 +1114,486 @@ class TestEndToEnd:
         assert result.score == 0
         assert result.severity == "low"
         assert len(result.control_points) == 0
+
+
+# ===================================================================
+# TestIsActionableChange
+# ===================================================================
+
+
+class TestIsActionableChange:
+    """Tests for is_actionable_change()."""
+
+    def test_create_is_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="create")
+        assert is_actionable_change(node) is True
+
+    def test_update_is_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="update")
+        assert is_actionable_change(node) is True
+
+    def test_delete_is_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="delete")
+        assert is_actionable_change(node) is True
+
+    def test_replace_is_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="replace")
+        assert is_actionable_change(node) is True
+
+    def test_noop_not_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="no-op")
+        assert is_actionable_change(node) is False
+
+    def test_read_not_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="read")
+        assert is_actionable_change(node) is False
+
+    def test_refresh_only_not_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="refresh-only")
+        assert is_actionable_change(node) is False
+
+    def test_unknown_not_actionable(self):
+        node = BlastNode(address="a", resource_type="aws_s3_bucket", action="unknown")
+        assert is_actionable_change(node) is False
+
+
+# ===================================================================
+# TestFindResourcePriorFixes
+# ===================================================================
+
+
+def _make_node(address, resource_type, action="create"):
+    return BlastNode(address=address, resource_type=resource_type, action=action)
+
+
+class TestFindResourcePriorFixes:
+    """Tests for find_resource_prior_fixes()."""
+
+    def test_empty_repo_returns_empty(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert result == []
+
+    def test_tag_match_returns_score_100(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="S3 bucket ACL error",
+            resolution="Set acl to private",
+            tags="aws_s3_bucket,storage",
+        ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert len(result) == 1
+        assert result[0]["score"] == 100
+        assert result[0]["match_reason"] == "tag_match"
+
+    def test_text_match_returns_score_60(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="aws_s3_bucket versioning broke after update",
+            resolution="Re-enabled versioning",
+            tags="storage",
+        ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert len(result) == 1
+        assert result[0]["score"] == 60
+        assert result[0]["match_reason"] == "text_match"
+
+    def test_substring_not_matched_word_boundary(self, tmp_path):
+        """aws_s3_bucket should NOT match aws_s3_bucket_policy via text search."""
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="aws_s3_bucket_policy denied access",
+            resolution="Updated bucket policy",
+            tags="storage",
+        ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert result == []
+
+    def test_tag_only_excludes_text_matches(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="aws_s3_bucket versioning error",
+            resolution="Fixed versioning",
+            tags="storage",
+        ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo, tag_only=True)
+        assert result == []
+
+    def test_same_fix_two_resources_one_entry(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="S3 bucket ACL error",
+            resolution="Set acl to private",
+            tags="aws_s3_bucket,storage",
+        ))
+        nodes = [
+            _make_node("aws_s3_bucket.data", "aws_s3_bucket"),
+            _make_node("aws_s3_bucket.logs", "aws_s3_bucket"),
+        ]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert len(result) == 1
+        assert len(result[0]["matched_resources"]) == 2
+
+    def test_max_total_limits_results(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        for i in range(5):
+            repo.save(Fix(
+                issue=f"S3 bucket error {i}",
+                resolution=f"Fix {i}",
+                tags="aws_s3_bucket",
+            ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo, max_total=2)
+        assert len(result) == 2
+
+    def test_tag_match_before_text_match(self, tmp_path):
+        """tag_match (score=100) fix should sort before text_match (score=60)."""
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="aws_s3_bucket text match only",
+            resolution="Fix text",
+            tags="storage",
+        ))
+        repo.save(Fix(
+            issue="S3 tag match fix",
+            resolution="Fix tag",
+            tags="aws_s3_bucket",
+        ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert result[0]["match_reason"] == "tag_match"
+        assert result[1]["match_reason"] == "text_match"
+
+    def test_tie_breaking_same_score_by_created_at_desc_then_id_asc(self, tmp_path):
+        """Same score → sorted by created_at DESC then id ASC."""
+        import time
+        repo = FixRepository(tmp_path)
+        # Save two fixes with tag match — will have same score
+        fix_a = Fix(issue="First fix", resolution="Res A", tags="aws_s3_bucket")
+        time.sleep(0.01)
+        fix_b = Fix(issue="Second fix", resolution="Res B", tags="aws_s3_bucket")
+        repo.save(fix_a)
+        repo.save(fix_b)
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        # Both have same score; more recent (fix_b) should come first
+        assert result[0]["issue"] == "Second fix"
+        assert result[1]["issue"] == "First fix"
+
+    def test_noop_node_excluded(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="S3 bucket error",
+            resolution="Fix it",
+            tags="aws_s3_bucket",
+        ))
+        nodes = [
+            _make_node("aws_s3_bucket.data", "aws_s3_bucket", action="no-op"),
+        ]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert result == []
+
+    def test_list_all_called_once_two_nodes_same_type(self, tmp_path):
+        """find_by_resource_type called once (not per node) for 2 nodes of same type."""
+        repo = FixRepository(tmp_path)
+        nodes = [
+            _make_node("aws_s3_bucket.a", "aws_s3_bucket"),
+            _make_node("aws_s3_bucket.b", "aws_s3_bucket"),
+        ]
+        with patch.object(repo, "find_by_resource_type", wraps=repo.find_by_resource_type) as mock_find:
+            find_resource_prior_fixes(nodes, repo, tag_only=False)
+            # find_by_resource_type deduped by unique rt — called once, not twice
+            assert mock_find.call_count == 1
+
+    def test_tag_only_list_all_never_called(self, tmp_path):
+        """tag_only=True: find_by_resource_type called once per unique rt."""
+        repo = FixRepository(tmp_path)
+        nodes = [
+            _make_node("aws_s3_bucket.a", "aws_s3_bucket"),
+            _make_node("aws_instance.b", "aws_instance"),
+        ]
+        with patch.object(repo, "find_by_resource_type", wraps=repo.find_by_resource_type) as mock_find:
+            find_resource_prior_fixes(nodes, repo, tag_only=True)
+            assert mock_find.call_count == 2  # one per unique rt
+
+    def test_punctuation_boundary_matches(self, tmp_path):
+        """Word-boundary regex matches resource type adjacent to punctuation."""
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue='Created "aws_s3_bucket", but ACL denied',
+            resolution="Set correct ACL",
+            tags="storage",
+        ))
+        nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert len(result) == 1
+
+    def test_match_reason_highest_tier_wins(self, tmp_path):
+        """Fix matched as tag_match for one rt stays tag_match even if text_match for another."""
+        repo = FixRepository(tmp_path)
+        fix = Fix(
+            issue="aws_instance configuration issue",
+            resolution="Fixed config",
+            tags="aws_s3_bucket",
+        )
+        repo.save(fix)
+        nodes = [
+            _make_node("aws_s3_bucket.data", "aws_s3_bucket"),  # tag_match for this fix
+            _make_node("aws_instance.web", "aws_instance"),      # text_match for this fix
+        ]
+        result = find_resource_prior_fixes(nodes, repo)
+        assert len(result) == 1
+        assert result[0]["match_reason"] == "tag_match"
+        assert result[0]["score"] == 100
+
+
+# ===================================================================
+# TestAnalyzeBlastRadiusResourceWarnings
+# ===================================================================
+
+
+class TestAnalyzeBlastRadiusResourceWarnings:
+    """Tests for resource_warnings in analyze_blast_radius()."""
+
+    def test_resource_warnings_populated(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="S3 bucket creation failed",
+            resolution="Fixed IAM policy",
+            tags="aws_s3_bucket",
+        ))
+        plan = make_plan([
+            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+        ])
+        result = analyze_blast_radius(plan, repo)
+        assert len(result.resource_warnings) >= 1
+        assert result.resource_warnings[0]["match_reason"] in ("tag_match", "text_match")
+
+    def test_tag_only_passed_through(self, tmp_path):
+        """tag_only=True excludes text_match fixes."""
+        repo = FixRepository(tmp_path)
+        repo.save(Fix(
+            issue="aws_s3_bucket caused ACL issue",
+            resolution="Fixed it",
+            tags="storage",
+        ))
+        plan = make_plan([
+            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+        ])
+        result = analyze_blast_radius(plan, repo, tag_only=True)
+        assert result.resource_warnings == []
+
+    def test_max_resource_warnings_respected(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        for i in range(5):
+            repo.save(Fix(
+                issue=f"S3 error {i}",
+                resolution=f"Fix {i}",
+                tags="aws_s3_bucket",
+            ))
+        plan = make_plan([
+            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+        ])
+        result = analyze_blast_radius(plan, repo, max_resource_warnings=3)
+        assert len(result.resource_warnings) <= 3
+
+
+# ===================================================================
+# TestAnalyzeFormatHuman
+# ===================================================================
+
+
+def _make_result_with_warnings(warnings):
+    """Build a minimal BlastResult with given resource_warnings."""
+    return BlastResult(
+        score=8.0,
+        severity="low",
+        changes=[{"address": "aws_s3_bucket.data", "resource_type": "aws_s3_bucket",
+                  "action": "create", "cloud_provider": "aws",
+                  "is_control_point": False, "category": "", "criticality": 0.0}],
+        plan_summary={"total_changes": 1, "control_points": 0,
+                      "affected_resources": 0, "by_action": {"create": 1}},
+        resource_warnings=warnings,
+    )
+
+
+def _make_changed():
+    from fixdoc.commands.analyze import PlanResource
+    from fixdoc.parsers.base import CloudProvider
+    return [PlanResource(
+        address="aws_s3_bucket.data",
+        resource_type="aws_s3_bucket",
+        name="data",
+        cloud_provider=CloudProvider.AWS,
+        action="create",
+    )]
+
+
+class TestAnalyzeFormatHuman:
+    """Tests for _format_human() tribal knowledge section."""
+
+    def test_section_rendered_when_warnings_present(self):
+        from fixdoc.commands.analyze import _format_human
+        warnings = [{
+            "id": "abcdef1234567890",
+            "short_id": "abcdef12",
+            "issue": "S3 bucket ACL error",
+            "resolution": "Set to private",
+            "tags": "aws_s3_bucket",
+            "created_at": "2024-01-15T10:00:00",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+        }]
+        result = _make_result_with_warnings(warnings)
+        output = _format_human(result, _make_changed())
+        assert "Prior Issues for Changed Resources" in output
+        assert "FIX-abcdef12" in output
+        assert "Run `fixdoc show" in output
+
+    def test_multi_resource_applies_to_shown(self):
+        from fixdoc.commands.analyze import _format_human
+        warnings = [{
+            "id": "abcdef1234567890",
+            "short_id": "abcdef12",
+            "issue": "S3 ACL error",
+            "resolution": "Fixed",
+            "tags": "",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": [
+                {"address": "aws_s3_bucket.a", "action": "create"},
+                {"address": "aws_s3_bucket.b", "action": "create"},
+            ],
+        }]
+        result = _make_result_with_warnings(warnings)
+        output = _format_human(result, _make_changed())
+        assert "Applies to:" in output
+
+    def test_single_resource_applies_to_omitted(self):
+        from fixdoc.commands.analyze import _format_human
+        warnings = [{
+            "id": "abcdef1234567890",
+            "short_id": "abcdef12",
+            "issue": "S3 ACL error",
+            "resolution": "Fixed",
+            "tags": "",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": [
+                {"address": "aws_s3_bucket.a", "action": "create"},
+            ],
+        }]
+        result = _make_result_with_warnings(warnings)
+        output = _format_human(result, _make_changed())
+        assert "Applies to:" not in output
+
+    def test_empty_warnings_section_not_rendered(self):
+        from fixdoc.commands.analyze import _format_human
+        result = _make_result_with_warnings([])
+        output = _format_human(result, _make_changed())
+        assert "Prior Issues for Changed Resources" not in output
+
+    def test_verbose_shows_score_and_tags(self):
+        from fixdoc.commands.analyze import _format_human
+        warnings = [{
+            "id": "abcdef1234567890",
+            "short_id": "abcdef12",
+            "issue": "S3 ACL error",
+            "resolution": "Set to private",
+            "tags": "aws_s3_bucket,storage",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+        }]
+        result = _make_result_with_warnings(warnings)
+        output = _format_human(result, _make_changed(), verbose=True)
+        assert "[score:100 | tag_match]" in output
+        assert "Tags:" in output
+
+    def test_nonverbose_hides_score_and_tags(self):
+        from fixdoc.commands.analyze import _format_human
+        warnings = [{
+            "id": "abcdef1234567890",
+            "short_id": "abcdef12",
+            "issue": "S3 ACL error",
+            "resolution": "Set to private",
+            "tags": "aws_s3_bucket,storage",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+        }]
+        result = _make_result_with_warnings(warnings)
+        output = _format_human(result, _make_changed(), verbose=False)
+        assert "[score:" not in output
+        assert "Tags:" not in output
+
+    def test_more_than_10_matched_resources_shows_overflow(self):
+        from fixdoc.commands.analyze import _format_human
+        matched = [{"address": f"aws_s3_bucket.b{i}", "action": "create"} for i in range(12)]
+        warnings = [{
+            "id": "abcdef1234567890",
+            "short_id": "abcdef12",
+            "issue": "S3 ACL error",
+            "resolution": "Fixed",
+            "tags": "",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": matched,
+        }]
+        result = _make_result_with_warnings(warnings)
+        output = _format_human(result, _make_changed())
+        assert "+2 more" in output
+
+
+# ===================================================================
+# TestAnalyzeFormatJson
+# ===================================================================
+
+
+class TestAnalyzeFormatJson:
+    """Tests for resource_warnings in JSON output."""
+
+    def test_json_contains_resource_warnings_key(self):
+        from fixdoc.commands.analyze import _format_json
+        result = _make_result_with_warnings([])
+        data = json.loads(_format_json(result))
+        assert "resource_warnings" in data
+
+    def test_json_resource_warnings_entry_fields(self):
+        from fixdoc.commands.analyze import _format_json
+        warnings = [{
+            "id": "abcdef1234567890abcd",
+            "short_id": "abcdef12",
+            "issue": "S3 error",
+            "resolution": "Fixed",
+            "tags": "aws_s3_bucket",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "score": 100,
+            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+        }]
+        result = _make_result_with_warnings(warnings)
+        data = json.loads(_format_json(result))
+        assert len(data["resource_warnings"]) == 1
+        entry = data["resource_warnings"][0]
+        assert "id" in entry
+        assert "short_id" in entry
+        assert "issue" in entry
+        assert "resolution" in entry
+        assert "match_reason" in entry
+        assert "score" in entry
+        assert "matched_resources" in entry
+        assert "created_at" in entry
+        # id should be full (not truncated)
+        assert entry["id"] == "abcdef1234567890abcd"

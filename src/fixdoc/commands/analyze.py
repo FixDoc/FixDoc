@@ -282,7 +282,7 @@ class TerraformAnalyzer:
 # ---------------------------------------------------------------------------
 
 
-def _format_human(result: BlastResult, changed: list[PlanResource]) -> str:
+def _format_human(result: BlastResult, changed: list[PlanResource], verbose: bool = False) -> str:
     """Format unified analysis result for human-readable terminal output."""
     lines = []
 
@@ -362,6 +362,47 @@ def _format_human(result: BlastResult, changed: list[PlanResource]) -> str:
             lines.append(f"  FIX-{fix_id}: {issue_preview}")
         lines.append("")
 
+    # Prior issues for changed resource types (tribal knowledge)
+    if result.resource_warnings:
+        lines.append(f"Prior Issues for Changed Resources ({len(result.resource_warnings)}):")
+        for w in result.resource_warnings:
+            short_id = w["short_id"]
+            issue = w["issue"] or ""
+            resolution = w["resolution"] or ""
+            matched = w.get("matched_resources", [])
+            created_at = (w.get("created_at") or "")[:10]
+
+            if verbose:
+                score = w.get("score", 0)
+                reason = w.get("match_reason", "")
+                lines.append(f"  [score:{score} | {reason}] FIX-{short_id}: {issue}")
+                lines.append(f"   Resolution: {resolution}")
+            else:
+                issue_disp = issue[:80] + "..." if len(issue) > 80 else issue
+                res_disp = resolution[:80] + "..." if len(resolution) > 80 else resolution
+                lines.append(f"  FIX-{short_id}: {issue_disp}")
+                lines.append(f"   Resolution: {res_disp}")
+
+            if len(matched) > 1:
+                display = matched[:10]
+                applies = ", ".join(f"{r['address']} ({r['action']})" for r in display)
+                extra = len(matched) - 10
+                if extra > 0:
+                    lines.append(f"   Applies to: {applies}")
+                    lines.append(f"               [+{extra} more]")
+                else:
+                    lines.append(f"   Applies to: {applies}")
+
+            lines.append(f"   Captured: {created_at}")
+
+            if verbose and w.get("tags"):
+                lines.append(f"   Tags: {w['tags']}")
+
+            lines.append("")
+
+        lines.append("Run `fixdoc show <short_id>` for full details.")
+        lines.append("")
+
     # Recommended checks
     if result.checks:
         lines.append("Recommended Checks:")
@@ -386,6 +427,7 @@ def _format_json(result: BlastResult) -> str:
         "checks": result.checks,
         "history_matches": result.history_matches,
         "plan_summary": result.plan_summary,
+        "resource_warnings": result.resource_warnings,
     }
     return json.dumps(data, indent=2)
 
@@ -475,6 +517,10 @@ def _auto_run_terraform_graph() -> Optional[str]:
     help="Fix history match strictness: strict, balanced, or loose.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed output")
+@click.option("--tag-only", is_flag=True, default=False,
+              help="Only show tribal warnings from tag-matched fixes (no text search).")
+@click.option("--max-warnings", "max_warnings", type=int, default=10,
+              help="Max number of tribal knowledge warnings to surface.")
 @click.pass_context
 def analyze(
     ctx,
@@ -486,6 +532,8 @@ def analyze(
     summary: bool,
     match_mode: str,
     verbose: bool,
+    tag_only: bool,
+    max_warnings: int,
 ):
     """
     Analyze a terraform plan for risk and known issues.
@@ -509,6 +557,8 @@ def analyze(
         --summary/-s    Quick summary output
         --match/-m      Fix history match strictness (strict|balanced|loose)
         --verbose/-v    Show detailed output
+        --tag-only      Only show tribal warnings from tag-matched fixes
+        --max-warnings  Max tribal knowledge warnings to surface (default: 10)
     """
     repo = FixRepository(ctx.obj["base_path"])
     plan_path = Path(plan_file)
@@ -546,7 +596,10 @@ def analyze(
             )
 
     # Run blast radius analysis
-    result = analyze_blast_radius(plan, repo, dot_text=dot_text, max_depth=max_depth)
+    result = analyze_blast_radius(
+        plan, repo, dot_text=dot_text, max_depth=max_depth,
+        tag_only=tag_only, max_resource_warnings=max_warnings,
+    )
 
     # Filter history matches by match mode
     if match_mode == "strict":
@@ -565,7 +618,7 @@ def analyze(
     elif output_format == "json":
         click.echo(_format_json(result))
     else:
-        click.echo(_format_human(result, changed))
+        click.echo(_format_human(result, changed, verbose=verbose))
 
     # CI gating
     if exit_on is not None:

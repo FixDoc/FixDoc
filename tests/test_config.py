@@ -44,10 +44,10 @@ class TestFixDocConfig:
     def test_default_suggestion_weights(self):
         config = FixDocConfig()
 
-        assert config.suggestion_weights.tag_weight == 10
-        assert config.suggestion_weights.error_code_weight == 15
-        assert config.suggestion_weights.issue_keyword_weight == 3
-        assert config.suggestion_weights.resolution_keyword_weight == 2
+        assert config.suggestion_weights.tag_weight == 5
+        assert config.suggestion_weights.error_code_weight == 20
+        assert config.suggestion_weights.issue_keyword_weight == 2
+        assert config.suggestion_weights.resolution_keyword_weight == 1
         assert config.suggestion_weights.resource_type_weight == 8
 
     def test_to_dict(self):
@@ -84,7 +84,7 @@ class TestFixDocConfig:
         assert d["capture"]["error_excerpt_max_chars"] == 3000
         assert d["capture"]["max_suggestions_shown"] == 3
         assert d["suggestion_weights"]["tag_weight"] == 20
-        assert d["suggestion_weights"]["error_code_weight"] == 15
+        assert d["suggestion_weights"]["error_code_weight"] == 20
 
     def test_from_dict(self):
         data = {
@@ -121,10 +121,10 @@ class TestFixDocConfig:
         assert config.capture.error_excerpt_max_chars == 2000
         assert config.capture.max_suggestions_shown == 3
         assert config.capture.similar_fix_limit == 5
-        assert config.suggestion_weights.tag_weight == 10
-        assert config.suggestion_weights.error_code_weight == 15
-        assert config.suggestion_weights.issue_keyword_weight == 3
-        assert config.suggestion_weights.resolution_keyword_weight == 2
+        assert config.suggestion_weights.tag_weight == 5
+        assert config.suggestion_weights.error_code_weight == 20
+        assert config.suggestion_weights.issue_keyword_weight == 2
+        assert config.suggestion_weights.resolution_keyword_weight == 1
         assert config.suggestion_weights.resource_type_weight == 8
 
     def test_from_dict_partial_config(self):
@@ -139,7 +139,7 @@ class TestFixDocConfig:
         assert config.display.list_result_limit == 20
         assert config.display.top_tags_limit == 10
         assert config.capture.error_excerpt_max_chars == 2000
-        assert config.suggestion_weights.tag_weight == 10
+        assert config.suggestion_weights.tag_weight == 5
         assert config.sync.remote_url is None
 
     def test_from_dict_with_new_sections(self):
@@ -221,7 +221,7 @@ class TestConfigManager:
         assert loaded.capture.similar_fix_limit == 5  # default
         assert loaded.suggestion_weights.tag_weight == 20
         assert loaded.suggestion_weights.error_code_weight == 30
-        assert loaded.suggestion_weights.issue_keyword_weight == 3  # default
+        assert loaded.suggestion_weights.issue_keyword_weight == 2  # default
 
     def test_is_sync_configured(self, tmp_path):
         manager = ConfigManager(tmp_path)
