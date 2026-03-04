@@ -7,6 +7,7 @@ fix history into a weighted BlastScore (0-100) with explainable
 propagation paths.
 """
 
+import json
 import re
 import uuid
 from collections import deque
@@ -101,6 +102,16 @@ GREENFIELD_BOUNDARY_MULTIPLIER = 0.5  # boundary creates (smaller discount — s
 GREENFIELD_IMPACT_MULTIPLIER = 0.25   # fraction of normal L1/L2 weight for cross-boundary edges
 
 
+# Sensitive IAM policy fields — a change to any of these triggers Layer 1 scoring.
+_SENSITIVE_IAM_FIELDS: frozenset = frozenset({
+    "assume_role_policy", "policy", "inline_policy",
+    "managed_policy_arns", "policy_arn",
+})
+
+# Matches cross-account ARNs like arn:aws:iam::123456789012:root
+_CROSS_ACCOUNT_RE = re.compile(r"^arn:aws:iam::\d+:root$")
+
+
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
@@ -117,6 +128,9 @@ class BlastNode:
     is_control_point: bool = False
     criticality: float = 0.0
     category: str = ""
+    sensitivity_delta: float = 0.0
+    sensitivity_reason: str = ""
+    wildcard_trust: bool = False
 
 
 @dataclass
@@ -246,6 +260,18 @@ def parse_dot_graph(dot_text: str) -> tuple[dict[str, set[str]], dict[str, set[s
     return forward, reverse
 
 
+def _addr_in_plan(addr: str, changed_addresses: set) -> bool:
+    """Return True if addr is in the plan, including as the base name of indexed resources.
+
+    terraform graph collapses count/for_each instances like aws_sg.bulk[0..49]
+    into a single node aws_sg.bulk — this must be recognised as "in the plan".
+    """
+    if addr in changed_addresses:
+        return True
+    prefix = addr + "["
+    return any(a.startswith(prefix) for a in changed_addresses)
+
+
 # ---------------------------------------------------------------------------
 # Bounded BFS
 # ---------------------------------------------------------------------------
@@ -320,6 +346,99 @@ def compute_tiered_affected(
 
 
 # ---------------------------------------------------------------------------
+# IAM sensitivity helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_principals(policy_json) -> set:
+    """Extract all principal strings from an IAM policy JSON.
+
+    Handles both JSON string and dict inputs.
+    Supports: Principal: "*", {"Service": "..."}, {"Service": [...]},
+              {"AWS": "..."}, etc.
+    Returns set[str].
+    """
+    if isinstance(policy_json, str):
+        try:
+            policy = json.loads(policy_json)
+        except (ValueError, TypeError):
+            return set()
+    elif isinstance(policy_json, dict):
+        policy = policy_json
+    else:
+        return set()
+
+    principals: set = set()
+    for stmt in policy.get("Statement", []):
+        p = stmt.get("Principal")
+        if p is None:
+            continue
+        if isinstance(p, str):
+            principals.add(p)
+        elif isinstance(p, dict):
+            for v in p.values():
+                if isinstance(v, str):
+                    principals.add(v)
+                elif isinstance(v, list):
+                    principals.update(str(x) for x in v)
+    return principals
+
+
+def _compute_iam_sensitivity(change_block: dict) -> tuple:
+    """Compute IAM policy sensitivity delta from a plan change block.
+
+    Returns (delta: float, reason: str, wildcard_trust: bool).
+
+    Layer 1 — sensitive field gate (+8 if any key IAM policy field changed).
+    Layer 2 — principal expansion, only when assume_role_policy changed:
+        new *.amazonaws.com service:          +10
+        new arn:aws:iam::<id>:root (cross-acct): +20
+        new "*" wildcard:                     sets wildcard_trust=True
+    Principal delta is capped at 25.
+    Total delta = layer1 + min(principal_delta, 25).
+    """
+    before = change_block.get("before") or {}
+    after = change_block.get("after") or {}
+
+    layer1_delta = 0.0
+    assume_role_changed = False
+
+    for field_name in _SENSITIVE_IAM_FIELDS:
+        if before.get(field_name) != after.get(field_name):
+            layer1_delta = 8.0
+            if field_name == "assume_role_policy":
+                assume_role_changed = True
+
+    principal_delta = 0.0
+    reason_parts: list = []
+    wildcard_trust = False
+
+    if assume_role_changed:
+        before_principals = _extract_principals(before.get("assume_role_policy", "{}"))
+        after_principals = _extract_principals(after.get("assume_role_policy", "{}"))
+        added = after_principals - before_principals
+
+        for p in added:
+            if p == "*":
+                wildcard_trust = True
+                reason_parts.append("wildcard principal")
+            elif _CROSS_ACCOUNT_RE.match(p):
+                principal_delta += 20.0
+                reason_parts.append(p)
+            elif p.endswith(".amazonaws.com"):
+                principal_delta += 10.0
+                reason_parts.append(p)
+
+        principal_delta = min(principal_delta, 25.0)
+
+    delta = layer1_delta + principal_delta
+    reason = ", ".join(reason_parts) if reason_parts else (
+        "policy field changed" if layer1_delta > 0 else ""
+    )
+    return delta, reason, wildcard_trust
+
+
+# ---------------------------------------------------------------------------
 # Blast score formula — linear
 # ---------------------------------------------------------------------------
 
@@ -383,6 +502,7 @@ def compute_blast_score(
                 points *= GREENFIELD_MULTIPLIER
         if node.action != "update" or is_boundary_resource(node.resource_type):
             all_updates_no_boundary = False
+        points += node.sensitivity_delta  # IAM policy change bonus (not discounted)
         action_points += points
 
     score += action_points
@@ -402,6 +522,15 @@ def compute_blast_score(
 
     # 3. History overlay
     score += min(history_match_count * 5, 15)
+
+    # Greenfield ceiling: all-creates with no cross-boundary existing-infra impact
+    # cannot exceed MEDIUM. Volume of new resources ≠ blast radius on live infra.
+    if is_greenfield and l1_count == 0 and l2_count == 0:
+        score = min(score, 45.0)
+
+    # Wildcard trust floor: a "*" principal in an IAM trust policy is always HIGH.
+    if any(n.wildcard_trust for n in changed_nodes):
+        score = max(score, 50.0)
 
     # Clamp
     score = min(100.0, max(0.0, score))
@@ -782,6 +911,13 @@ def analyze_blast_radius(
 
         if is_cp:
             control_points.append(node)
+            if node.action == "update" and node.category in ("iam", "rbac"):
+                cb = _find_change_block(plan, node.address)
+                if cb:
+                    delta, reason, wildcard = _compute_iam_sensitivity(cb)
+                    node.sensitivity_delta = delta
+                    node.sensitivity_reason = reason
+                    node.wildcard_trust = wildcard
 
         changes.append(
             {
@@ -829,7 +965,16 @@ def analyze_blast_radius(
         l2_affected = [ar for ar in all_ar if ar.depth >= 2]
         if not (has_boundary or has_destructive):
             l2_affected = []
-        all_affected = l1_affected + l2_affected
+        # Filter out resources whose DOT-graph address is just the base name of
+        # indexed plan resources (e.g. "aws_security_group.bulk" when the plan
+        # contains "aws_security_group.bulk[0]" .. "[49]").  Without this,
+        # those nodes are counted as cross-boundary hits and block the greenfield cap.
+        all_affected = [
+            ar for ar in l1_affected + l2_affected
+            if not _addr_in_plan(ar.address, changed_addrs)
+        ]
+        l1_affected = [ar for ar in all_affected if ar.depth == 1]
+        l2_affected = [ar for ar in all_affected if ar.depth >= 2]
 
     # History prior
     changed_types = list({n.resource_type for n in nodes})
@@ -846,8 +991,8 @@ def analyze_blast_radius(
     # the score. For greenfield plans this removes all intra-plan L1/L2 noise;
     # only cross-boundary edges to existing infra are counted (at reduced weight).
     changed_addresses = {n.address for n in nodes}
-    l1_score_count = sum(1 for ar in l1_affected if ar.address not in changed_addresses)
-    l2_score_count = sum(1 for ar in l2_affected if ar.address not in changed_addresses)
+    l1_score_count = sum(1 for ar in l1_affected if not _addr_in_plan(ar.address, changed_addresses))
+    l2_score_count = sum(1 for ar in l2_affected if not _addr_in_plan(ar.address, changed_addresses))
 
     score = compute_blast_score(
         nodes, l1_score_count, l2_score_count, history_count

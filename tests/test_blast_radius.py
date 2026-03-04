@@ -27,6 +27,8 @@ from fixdoc.blast_radius import (
     _normalize_action,
     _history_cluster_key,
     _dedup_history_candidates,
+    _extract_principals,
+    _compute_iam_sensitivity,
     ACTION_POINTS,
 )
 from fixdoc.cli import create_cli
@@ -450,6 +452,43 @@ class TestBlastScore:
         score_create = compute_blast_score(nodes_create, 5, 0, 0)
         score_mixed = compute_blast_score(nodes_mixed, 5, 0, 0)
         assert score_create < score_mixed
+
+    def test_greenfield_50_boundary_creates_caps_at_medium(self):
+        """50 boundary creates (scenario-16 case) must not score CRITICAL."""
+        nodes = (
+            [BlastNode(f"aws_iam_role.r_{i}", "aws_iam_role", "create") for i in range(50)]
+            + [BlastNode(f"aws_security_group.sg_{i}", "aws_security_group", "create") for i in range(50)]
+        )
+        score = compute_blast_score(nodes, 0, 0, 0)
+        assert score <= 45.0
+        assert severity_label(score) == "medium"
+
+    def test_greenfield_cap_does_not_apply_with_external_dependents(self):
+        """If a greenfield plan has L1 cross-boundary dependents, no cap — can score higher."""
+        nodes = [BlastNode(f"aws_iam_role.r_{i}", "aws_iam_role", "create") for i in range(5)]
+        score_no_deps = compute_blast_score(nodes, 0, 0, 0)
+        score_with_deps = compute_blast_score(nodes, 10, 0, 0)
+        assert score_no_deps <= 45.0   # cap applies when no external deps
+        assert score_with_deps > score_no_deps   # external deps push it higher
+
+
+def test_greenfield_dot_indexed_resource_name_mismatch_caps_at_medium(tmp_path):
+    """DOT graph nodes for count resources (aws_sg.bulk) must be treated as
+    in-plan when the plan has aws_sg.bulk[0..N], so the greenfield cap applies."""
+    repo = FixRepository(tmp_path)
+    plan = make_plan([
+        make_resource_change("aws_security_group.bulk[0]", "aws_security_group", ["create"]),
+        make_resource_change("aws_security_group.bulk[1]", "aws_security_group", ["create"]),
+        make_resource_change("aws_security_group.bulk[2]", "aws_security_group", ["create"]),
+        make_resource_change("aws_vpc.main", "aws_vpc", ["create"]),
+    ])
+    # terraform graph emits the base name without index brackets for count resources
+    dot_text = '''digraph {
+        "aws_security_group.bulk" -> "aws_vpc.main"
+    }'''
+    result = analyze_blast_radius(plan, dot_text=dot_text, repo=repo)
+    assert result.score <= 45.0, f"Expected MEDIUM cap, got {result.score}"
+    assert result.severity != "critical"
 
 
 # ===================================================================
@@ -1599,3 +1638,60 @@ class TestAnalyzeFormatJson:
         assert "created_at" in entry
         # id should be full (not truncated)
         assert entry["id"] == "abcdef1234567890abcd"
+
+
+# ===================================================================
+# TestIAMSensitivity
+# ===================================================================
+
+
+class TestIAMSensitivity:
+    """Tests for _extract_principals and _compute_iam_sensitivity."""
+
+    def test_extract_principals_single_service_string(self):
+        policy = json.dumps({"Statement": [{"Principal": {"Service": "ec2.amazonaws.com"}}]})
+        assert _extract_principals(policy) == {"ec2.amazonaws.com"}
+
+    def test_extract_principals_list_service(self):
+        policy = json.dumps({"Statement": [{"Principal": {
+            "Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"]
+        }}]})
+        assert _extract_principals(policy) == {"ec2.amazonaws.com", "lambda.amazonaws.com"}
+
+    def test_extract_principals_wildcard_string(self):
+        policy = json.dumps({"Statement": [{"Principal": "*"}]})
+        assert "*" in _extract_principals(policy)
+
+    def test_extract_principals_cross_account(self):
+        policy = json.dumps({"Statement": [{"Principal": {"AWS": "arn:aws:iam::123456789012:root"}}]})
+        assert "arn:aws:iam::123456789012:root" in _extract_principals(policy)
+
+    def test_iam_sensitivity_service_principal_added(self):
+        """before: ec2 only; after: ec2 + lambda → +8 field +10 service = 18."""
+        before_policy = json.dumps({"Statement": [{"Effect": "Allow",
+            "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]})
+        after_policy = json.dumps({"Statement": [{"Effect": "Allow",
+            "Principal": {"Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"]},
+            "Action": "sts:AssumeRole"}]})
+        cb = {"before": {"assume_role_policy": before_policy},
+              "after":  {"assume_role_policy": after_policy}}
+        delta, reason, wildcard = _compute_iam_sensitivity(cb)
+        assert delta == 18.0   # +8 sensitive field + +10 service principal
+        assert wildcard is False
+        assert "lambda.amazonaws.com" in reason
+
+    def test_iam_sensitivity_tag_change_only(self):
+        """Only tags changed → delta=0, no wildcard."""
+        cb = {"before": {"tags": {"env": "prod"}, "assume_role_policy": "{}"},
+              "after":  {"tags": {"env": "staging"}, "assume_role_policy": "{}"}}
+        delta, _, wildcard = _compute_iam_sensitivity(cb)
+        assert delta == 0.0
+        assert wildcard is False
+
+    def test_wildcard_trust_forces_high_floor(self):
+        """BlastNode with wildcard_trust=True forces score >= 50 (HIGH)."""
+        nodes = [BlastNode("aws_iam_role.r", "aws_iam_role", "update",
+                           sensitivity_delta=0, wildcard_trust=True)]
+        score = compute_blast_score(nodes, 0, 0, 0)
+        assert score >= 50.0
+        assert severity_label(score) == "high"
