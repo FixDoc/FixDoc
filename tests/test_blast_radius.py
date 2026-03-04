@@ -15,6 +15,7 @@ from fixdoc.blast_radius import (
     compute_tiered_affected,
     compute_blast_score,
     severity_label,
+    build_score_explanation,
     compute_history_prior,
     redact_plan_values,
     generate_checks,
@@ -23,6 +24,7 @@ from fixdoc.blast_radius import (
     is_actionable_change,
     BlastNode,
     BlastResult,
+    ScoreExplanation,
     _normalize_tf_node,
     _normalize_action,
     _history_cluster_key,
@@ -1695,3 +1697,111 @@ class TestIAMSensitivity:
         score = compute_blast_score(nodes, 0, 0, 0)
         assert score >= 50.0
         assert severity_label(score) == "high"
+
+
+# ===================================================================
+# TestBuildScoreExplanation
+# ===================================================================
+
+
+class TestBuildScoreExplanation:
+    """Tests for build_score_explanation()."""
+
+    def test_empty_nodes_returns_no_bullets(self):
+        result = build_score_explanation([], 0, 0, 0)
+        assert result == []
+
+    def test_delete_action_bullet(self):
+        nodes = [BlastNode("aws_vpc.main", "aws_vpc", "delete")]
+        bullets = build_score_explanation(nodes, 0, 0, 0)
+        action_bullets = [b for b in bullets if b.kind == "action"]
+        assert len(action_bullets) == 1
+        assert "delete" in action_bullets[0].label
+        assert action_bullets[0].delta > 0
+
+    def test_iam_sensitivity_bullet(self):
+        node = BlastNode(
+            "aws_iam_role.api", "aws_iam_role", "update",
+            sensitivity_delta=18.0, sensitivity_reason="lambda.amazonaws.com",
+        )
+        bullets = build_score_explanation([node], 0, 0, 0)
+        iam_bullets = [b for b in bullets if b.kind == "iam"]
+        assert len(iam_bullets) == 1
+        assert iam_bullets[0].delta == 18.0
+        assert "aws_iam_role.api" in iam_bullets[0].label
+
+    def test_wildcard_trust_modifier_bullet(self):
+        node = BlastNode(
+            "aws_iam_role.api", "aws_iam_role", "update",
+            sensitivity_delta=8.0, wildcard_trust=True,
+        )
+        bullets = build_score_explanation([node], 0, 0, 0)
+        modifier_bullets = [b for b in bullets if b.kind == "modifier"]
+        assert len(modifier_bullets) == 1
+        assert "wildcard" in modifier_bullets[0].label.lower()
+        assert modifier_bullets[0].delta == 0.0
+
+    def test_l1_impact_bullet(self):
+        nodes = [BlastNode("aws_vpc.main", "aws_vpc", "delete")]
+        bullets = build_score_explanation(nodes, l1_count=3, l2_count=0, history_count=0)
+        impact_bullets = [b for b in bullets if b.kind == "impact"]
+        assert len(impact_bullets) == 1
+        assert impact_bullets[0].delta == pytest.approx(4.5, abs=0.1)
+        assert "3" in impact_bullets[0].label
+
+    def test_history_bullet_single(self):
+        nodes = [BlastNode("aws_vpc.main", "aws_vpc", "delete")]
+        bullets = build_score_explanation(nodes, 0, 0, history_count=1)
+        history_bullets = [b for b in bullets if b.kind == "history"]
+        assert len(history_bullets) == 1
+        assert history_bullets[0].delta == 5.0
+
+    def test_history_bullet_multiple(self):
+        nodes = [BlastNode("aws_vpc.main", "aws_vpc", "delete")]
+        bullets = build_score_explanation(nodes, 0, 0, history_count=3)
+        history_bullets = [b for b in bullets if b.kind == "history"]
+        assert len(history_bullets) == 1
+        assert history_bullets[0].delta == 15.0
+
+    def test_greenfield_cap_modifier(self):
+        nodes = [
+            BlastNode("aws_s3_bucket.a", "aws_s3_bucket", "create"),
+            BlastNode("aws_s3_bucket.b", "aws_s3_bucket", "create"),
+        ]
+        bullets = build_score_explanation(nodes, l1_count=0, l2_count=0, history_count=0)
+        modifier_bullets = [b for b in bullets if b.kind == "modifier"]
+        assert len(modifier_bullets) == 1
+        assert "greenfield" in modifier_bullets[0].label.lower()
+        # No greenfield cap when there ARE downstream resources
+        bullets_with_impact = build_score_explanation(nodes, l1_count=2, l2_count=0, history_count=0)
+        cap_modifiers = [b for b in bullets_with_impact if b.kind == "modifier"]
+        assert len(cap_modifiers) == 0
+
+    def test_kinds_are_correct(self):
+        node = BlastNode(
+            "aws_iam_role.api", "aws_iam_role", "delete",
+            sensitivity_delta=8.0, wildcard_trust=True,
+        )
+        bullets = build_score_explanation([node], l1_count=2, l2_count=1, history_count=2)
+        kinds = {b.kind for b in bullets}
+        assert "action" in kinds
+        assert "iam" in kinds
+        assert "modifier" in kinds
+        assert "impact" in kinds
+        assert "history" in kinds
+        for b in bullets:
+            assert b.kind in ("action", "iam", "modifier", "impact", "history")
+
+    def test_score_explanation_in_blast_result(self, tmp_path):
+        repo = FixRepository(tmp_path)
+        plan = make_plan([
+            make_resource_change("aws_iam_role.api", "aws_iam_role", ["update"]),
+            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+        ])
+        result = analyze_blast_radius(plan, repo)
+        assert isinstance(result.score_explanation, list)
+        assert len(result.score_explanation) > 0
+        first = result.score_explanation[0]
+        assert "label" in first
+        assert "delta" in first
+        assert "kind" in first

@@ -161,6 +161,16 @@ class BlastResult:
     history_matches: list[dict] = field(default_factory=list)
     plan_summary: dict = field(default_factory=dict)
     resource_warnings: list[dict] = field(default_factory=list)
+    score_explanation: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class ScoreExplanation:
+    """A single bullet-point explanation of a blast score contribution."""
+
+    label: str    # Human-readable description
+    delta: float  # Score contribution (positive = adds to score)
+    kind: str     # "action", "iam", "impact", "history", "modifier"
 
 
 def is_actionable_change(node: BlastNode) -> bool:
@@ -546,6 +556,107 @@ def severity_label(score: float) -> str:
     if score >= 25:
         return "medium"
     return "low"
+
+
+def build_score_explanation(
+    nodes: list[BlastNode],
+    l1_count: int,
+    l2_count: int,
+    history_count: int,
+) -> list[ScoreExplanation]:
+    """Build rule-based score explanation bullets mirroring compute_blast_score().
+
+    Returns a list of ScoreExplanation objects describing each score contribution.
+    """
+    if not nodes:
+        return []
+
+    explanations: list[ScoreExplanation] = []
+
+    is_greenfield = all(node.action == "create" for node in nodes)
+    all_updates_no_boundary = all(
+        node.action == "update" and not is_boundary_resource(node.resource_type)
+        for node in nodes
+    )
+
+    # Action bullets — one per changed node
+    for node in nodes:
+        base_points = ACTION_POINTS.get(node.action, 0)
+        is_boundary = is_boundary_resource(node.resource_type)
+        points = float(base_points)
+        qualifiers: list[str] = []
+
+        if is_boundary:
+            points *= 1.5
+            qualifiers.append("boundary resource")
+            if is_greenfield:
+                points *= GREENFIELD_BOUNDARY_MULTIPLIER
+                qualifiers.append("greenfield")
+        else:
+            if is_greenfield:
+                points *= GREENFIELD_MULTIPLIER
+                qualifiers.append("greenfield")
+
+        if points > 0:
+            qualifier_str = f" ({', '.join(qualifiers)})" if qualifiers else ""
+            label = f"{node.action} {node.address}{qualifier_str}"
+            explanations.append(
+                ScoreExplanation(label=label, delta=round(points, 1), kind="action")
+            )
+
+        # IAM sensitivity bullet
+        if node.sensitivity_delta > 0:
+            if node.sensitivity_reason and node.sensitivity_reason != "policy field changed":
+                label = f"IAM trust expanded on {node.address}: {node.sensitivity_reason}"
+            else:
+                label = f"IAM policy field changed on {node.address}"
+            explanations.append(
+                ScoreExplanation(label=label, delta=node.sensitivity_delta, kind="iam")
+            )
+
+        # Wildcard trust modifier
+        if node.wildcard_trust:
+            label = "Wildcard principal (*) in IAM trust policy — forces minimum HIGH score"
+            explanations.append(
+                ScoreExplanation(label=label, delta=0.0, kind="modifier")
+            )
+
+    # Impact bullet
+    impacted = min(l1_count + l2_count, 25)
+    if impacted > 0:
+        if is_greenfield:
+            impact_multiplier = 1.5 * GREENFIELD_IMPACT_MULTIPLIER
+        elif all_updates_no_boundary:
+            impact_multiplier = 0.5
+        else:
+            impact_multiplier = 1.5
+        delta = round(impacted * impact_multiplier, 1)
+        label = f"{impacted} downstream resource(s) affected via dependency graph"
+        explanations.append(
+            ScoreExplanation(label=label, delta=delta, kind="impact")
+        )
+
+    # History bullet
+    if history_count > 0:
+        delta = float(min(history_count * 5, 15))
+        plural = "s" if history_count > 1 else ""
+        match_plural = "es" if history_count > 1 else ""
+        label = (
+            f"Prior similar incident{plural} detected in fix history "
+            f"({history_count} match{match_plural})"
+        )
+        explanations.append(
+            ScoreExplanation(label=label, delta=delta, kind="history")
+        )
+
+    # Greenfield cap modifier
+    if is_greenfield and l1_count == 0 and l2_count == 0:
+        label = "Greenfield plan (all creates, no cross-boundary impact) — capped at MEDIUM"
+        explanations.append(
+            ScoreExplanation(label=label, delta=0.0, kind="modifier")
+        )
+
+    return explanations
 
 
 # ---------------------------------------------------------------------------
@@ -999,6 +1110,12 @@ def analyze_blast_radius(
     )
     sev = severity_label(score)
 
+    # Score explanation bullets
+    explanation = build_score_explanation(nodes, l1_score_count, l2_score_count, history_count)
+    score_explanation = [
+        {"label": e.label, "delta": e.delta, "kind": e.kind} for e in explanation
+    ]
+
     # Recommended checks
     has_deletes = any(n.action in ("delete", "replace") for n in nodes)
     checks = generate_checks(control_points, has_deletes)
@@ -1053,6 +1170,7 @@ def analyze_blast_radius(
         history_matches=history_matches,
         plan_summary=plan_summary,
         resource_warnings=resource_warnings,
+        score_explanation=score_explanation,
     )
 
 

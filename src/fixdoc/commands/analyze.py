@@ -4,6 +4,7 @@ Merges plan analysis + blast radius into a single command.
 """
 
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -314,7 +315,12 @@ def _group_warnings(warnings: list) -> dict:
     return groups
 
 
-def _format_human(result: BlastResult, changed: list[PlanResource], verbose: bool = False) -> str:
+def _format_human(
+    result: BlastResult,
+    changed: list[PlanResource],
+    verbose: bool = False,
+    ai_explanation: Optional[str] = None,
+) -> str:
     """Format unified analysis result for human-readable terminal output."""
     lines = []
 
@@ -355,6 +361,19 @@ def _format_human(result: BlastResult, changed: list[PlanResource], verbose: boo
     score_line = f"Risk Score: {result.score} / 100  [{sev}]"
     lines.append(click.style(score_line, fg=color))
     lines.append("")
+
+    # Score explanation block
+    if ai_explanation:
+        lines.append(f"Why this scored {sev} (AI analysis):")
+        for line in ai_explanation.strip().splitlines():
+            lines.append(f"  {line}")
+        lines.append("")
+    elif result.score_explanation:
+        lines.append(f"Why this scored {sev}:")
+        for item in result.score_explanation:
+            delta_str = f" (+{item['delta']:.0f})" if item["delta"] > 0 else ""
+            lines.append(f"  \u2022 {item['label']}{delta_str}")
+        lines.append("")
 
     # Changes list
     if changed:
@@ -460,6 +479,7 @@ def _format_json(result: BlastResult) -> str:
         "history_matches": result.history_matches,
         "plan_summary": result.plan_summary,
         "resource_warnings": result.resource_warnings,
+        "score_explanation": result.score_explanation,
     }
     return json.dumps(data, indent=2)
 
@@ -474,6 +494,55 @@ def _format_summary(result: BlastResult) -> str:
         f"{ps.get('control_points', 0)} control points, "
         f"{ps.get('affected_resources', 0)} impacted"
     )
+
+
+def generate_ai_explanation(result: BlastResult, api_key: str) -> Optional[str]:
+    """Call the Claude API to generate polished score explanation prose.
+
+    Returns the response text, or None if anthropic is not installed or the
+    call fails for any reason.
+    """
+    try:
+        import anthropic
+    except ImportError:
+        return None
+
+    bullet_labels = [item["label"] for item in result.score_explanation]
+    control_point_addrs = [cp["address"] for cp in result.control_points[:3]]
+    affected_count = len(result.affected)
+    history_count = len(result.history_matches)
+
+    prompt_parts = [
+        f"A Terraform plan scored {result.score}/100 ({result.severity.upper()} severity) for blast radius risk.",
+        "Score factors:",
+    ]
+    for label in bullet_labels:
+        prompt_parts.append(f"- {label}")
+    if control_point_addrs:
+        prompt_parts.append(f"\nControl points: {', '.join(control_point_addrs)}")
+    if affected_count:
+        prompt_parts.append(f"Downstream affected resources: {affected_count}")
+    if history_count:
+        prompt_parts.append(f"Historical incident matches: {history_count}")
+    prompt_parts.append(
+        f"\nWrite 2-4 concise bullet points explaining why this scored "
+        f"{result.severity.upper()} to an infrastructure engineer. "
+        "Focus on the risk implications, not just restating the factors. "
+        "Use plain text with '\u2022' bullets. No header, no intro sentence."
+    )
+
+    prompt = "\n".join(prompt_parts)
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
+    except Exception:
+        return None
 
 
 def _auto_run_terraform_graph() -> Optional[str]:
@@ -553,6 +622,8 @@ def _auto_run_terraform_graph() -> Optional[str]:
               help="Only show tribal warnings from tag-matched fixes (no text search).")
 @click.option("--max-warnings", "max_warnings", type=int, default=10,
               help="Max number of tribal knowledge warnings to surface.")
+@click.option("--ai-explain", "ai_explain", is_flag=True, default=False,
+              help="Use Claude API to generate polished score explanation. Requires ANTHROPIC_API_KEY.")
 @click.pass_context
 def analyze(
     ctx,
@@ -566,6 +637,7 @@ def analyze(
     verbose: bool,
     tag_only: bool,
     max_warnings: int,
+    ai_explain: bool,
 ):
     """
     Analyze a terraform plan for risk and known issues.
@@ -591,6 +663,7 @@ def analyze(
         --verbose/-v    Show detailed output
         --tag-only      Only show tribal warnings from tag-matched fixes
         --max-warnings  Max tribal knowledge warnings to surface (default: 10)
+        --ai-explain    Use Claude API for polished score explanation (needs ANTHROPIC_API_KEY)
     """
     repo = FixRepository(ctx.obj["base_path"])
     plan_path = Path(plan_file)
@@ -644,13 +717,24 @@ def analyze(
         pass
     # balanced is default — uses the standard history_prior logic
 
+    # Optional AI explanation
+    ai_explanation = None
+    if ai_explain:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            click.echo("Warning: --ai-explain requires ANTHROPIC_API_KEY env var.", err=True)
+        else:
+            ai_explanation = generate_ai_explanation(result, api_key)
+            if ai_explanation is None:
+                click.echo("Warning: AI explanation failed, falling back to rule-based.", err=True)
+
     # Output
     if summary:
         click.echo(_format_summary(result))
     elif output_format == "json":
         click.echo(_format_json(result))
     else:
-        click.echo(_format_human(result, changed, verbose=verbose))
+        click.echo(_format_human(result, changed, verbose=verbose, ai_explanation=ai_explanation))
 
     # CI gating
     if exit_on is not None:
