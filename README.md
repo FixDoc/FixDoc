@@ -229,15 +229,45 @@ Everything persists as structured JSON plus a human-readable markdown file per f
 
 ## CI Integration
 
+Quick start — add this to any workflow that generates a Terraform plan:
+
 ```yaml
-# .github/workflows/risk-gate.yml
-- name: Check blast radius
+- name: Analyze risk
   run: |
     terraform show -json plan.tfplan > plan.json
     fixdoc analyze plan.json --exit-on high
 ```
 
-A full GitHub Actions example workflow is at `.github/workflows/terraform-risk-analysis.yml`.
+### Review Modes
+
+The included GitHub Actions workflow (`.github/workflows/terraform-risk-analysis.yml`) supports three review modes via the `REVIEW_MODE` env var or `workflow_dispatch` input:
+
+| Mode | Behavior |
+|------|----------|
+| `advisory` (default) | Posts analysis to job summary + PR comment. Never blocks. |
+| `warn` | Same as advisory + adds GitHub warning annotation if high/critical. |
+| `gate` | Same as warn + fails the workflow if severity >= `GATE_THRESHOLD`. |
+
+### `--exit-on` for CI Gating
+
+```bash
+fixdoc analyze plan.json --exit-on high      # fail if HIGH or CRITICAL
+fixdoc analyze plan.json --exit-on critical   # fail only on CRITICAL
+fixdoc analyze plan.json --exit-on low        # fail on any non-zero score
+```
+
+### Output Formats
+
+| Format | Flag | Use case |
+|--------|------|----------|
+| Human | `--format human` (default) | Terminal output with color |
+| JSON | `--format json` | Machine-readable for scripts |
+| Markdown | `--format markdown` | PR comments and job summaries |
+| Summary | `--summary` | One-line risk summary |
+
+The workflow uses `--format markdown` for PR comments and `--format json` to extract severity for gating decisions.
+
+See `.github/workflows/terraform-risk-analysis.yml` for the full workflow with matrix strategy, PR comments, and review mode support.
 
 ## Local Development & Testing
 

@@ -2355,3 +2355,219 @@ class TestBackwardCompat:
         assert "checks" in data
         assert "history_matches" in data
         assert "resource_warnings" in data
+
+
+# ===================================================================
+# TestAnalyzeFormatMarkdown
+# ===================================================================
+
+
+class TestAnalyzeFormatMarkdown:
+    """Tests for _format_markdown() output."""
+
+    def test_markdown_header(self):
+        from fixdoc.commands.analyze import _format_markdown
+        result = _make_result_with_warnings([])
+        output = _format_markdown(result)
+        assert "## Terraform Risk Analysis" in output
+
+    def test_markdown_score_and_severity(self):
+        from fixdoc.commands.analyze import _format_markdown
+        result = _make_result_with_warnings([])
+        result.score = 67.0
+        result.severity = "high"
+        output = _format_markdown(result)
+        assert "**Risk: 67/100**" in output
+        assert ":warning:" in output
+        assert "**HIGH**" in output
+
+    def test_markdown_summary_table(self):
+        from fixdoc.commands.analyze import _format_markdown
+        result = _make_result_with_warnings([])
+        result.plan_summary = {
+            "total_changes": 5,
+            "control_points": 2,
+            "affected_resources": 3,
+            "by_action": {"create": 2, "update": 1, "delete": 1, "replace": 1},
+        }
+        output = _format_markdown(result)
+        assert "| Metric | Value |" in output
+        assert "| Total changes | 5 |" in output
+        assert "| Creates | 2 |" in output
+        assert "| Updates | 1 |" in output
+        assert "| Deletes | 1 |" in output
+        assert "| Replaces | 1 |" in output
+        assert "| Control points | 2 |" in output
+        assert "| Impacted resources | 3 |" in output
+
+    def test_markdown_score_explanation_top_3(self):
+        from fixdoc.commands.analyze import _format_markdown
+        result = _make_result_with_warnings([])
+        result.score_explanation = [
+            {"label": "A", "delta": 10, "kind": "action"},
+            {"label": "B", "delta": 20, "kind": "impact"},
+            {"label": "C", "delta": 5, "kind": "history"},
+            {"label": "D", "delta": 15, "kind": "iam"},
+            {"label": "E", "delta": 3, "kind": "modifier"},  # should be skipped
+        ]
+        output = _format_markdown(result)
+        assert "### Why this score?" in output
+        # Top 3 by delta (excluding modifier E): B(20), D(15), A(10)
+        assert "B (+20)" in output
+        assert "D (+15)" in output
+        assert "A (+10)" in output
+        # C(5) should be excluded (4th after filtering)
+        assert "C (+5)" not in output
+        # E is a modifier, filtered out
+        assert "E (+3)" not in output
+
+    def test_markdown_contextual_checks_top_3(self):
+        from fixdoc.commands.analyze import _format_markdown
+        result = _make_result_with_warnings([])
+        result.contextual_checks = [
+            {"check": "Check A", "source": "attr", "resource": ""},
+            {"check": "Check B", "source": "history", "resource": ""},
+            {"check": "Check C", "source": "category", "resource": ""},
+            {"check": "Check D", "source": "attr", "resource": ""},
+            {"check": "Check E", "source": "attr", "resource": ""},
+        ]
+        output = _format_markdown(result)
+        assert "### Contextual Checks" in output
+        assert "Check A" in output
+        assert "Check B" in output
+        assert "Check C" in output
+        assert "Check D" not in output
+        assert "Check E" not in output
+
+    def test_markdown_relevant_fixes_table(self):
+        from fixdoc.commands.analyze import _format_markdown
+        warnings = [{
+            "short_id": "3a8f12c4",
+            "issue": "IAM role missing lambda:InvokeFunction",
+            "resolution": "Added permission",
+            "tags": "aws_iam_role",
+            "created_at": "2024-01-15",
+            "match_reason": {"signal": "error_code", "detail": "InvalidPermission",
+                           "resource_type": "aws_iam_role", "confidence": "high",
+                           "supporting_signals": []},
+            "confidence": "high",
+            "score": 150,
+            "matched_resources": [{"address": "aws_iam_role.app", "action": "update"}],
+        }]
+        result = _make_result_with_warnings(warnings)
+        result.relevant_fixes = warnings
+        output = _format_markdown(result)
+        assert "### Relevant Past Fixes" in output
+        assert "| Fix | Issue | Confidence |" in output
+        assert "FIX-3a8f12c4" in output
+        assert "high (error code: InvalidPermission)" in output
+
+    def test_markdown_relevant_fixes_top_3(self):
+        from fixdoc.commands.analyze import _format_markdown
+        fixes = []
+        for i in range(5):
+            fixes.append({
+                "short_id": f"fix{i:05d}0",
+                "issue": f"Issue number {i}",
+                "resolution": f"Resolution {i}",
+                "tags": "aws_s3_bucket",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "confidence": "low",
+                "score": 40,
+                "matched_resources": [],
+            })
+        result = _make_result_with_warnings(fixes)
+        result.relevant_fixes = fixes
+        output = _format_markdown(result)
+        assert "FIX-fix000000" in output
+        assert "FIX-fix000010" in output
+        assert "FIX-fix000020" in output
+        assert "FIX-fix000030" not in output
+        assert "FIX-fix000040" not in output
+
+    def test_markdown_empty_sections_omitted(self):
+        from fixdoc.commands.analyze import _format_markdown
+        result = _make_result_with_warnings([])
+        result.relevant_fixes = []
+        result.contextual_checks = []
+        result.checks = []
+        result.score_explanation = []
+        output = _format_markdown(result)
+        assert "### Relevant Past Fixes" not in output
+        assert "### Contextual Checks" not in output
+        assert "### Why this score?" not in output
+
+    def test_markdown_severity_emojis(self):
+        from fixdoc.commands.analyze import _format_markdown
+        for sev, emoji in [
+            ("critical", ":red_circle:"),
+            ("high", ":warning:"),
+            ("medium", ":large_blue_circle:"),
+            ("low", ":white_check_mark:"),
+        ]:
+            result = _make_result_with_warnings([])
+            result.severity = sev
+            output = _format_markdown(result)
+            assert emoji in output
+
+    def test_markdown_no_ansi(self):
+        from fixdoc.commands.analyze import _format_markdown
+        warnings = [{
+            "short_id": "abcdef12",
+            "issue": "Test issue",
+            "resolution": "Test resolution",
+            "tags": "aws_s3_bucket",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "confidence": "low",
+            "score": 40,
+            "matched_resources": [],
+        }]
+        result = _make_result_with_warnings(warnings)
+        result.relevant_fixes = warnings
+        result.score_explanation = [{"label": "Test", "delta": 10, "kind": "action"}]
+        result.contextual_checks = [{"check": "Test check", "source": "attr", "resource": ""}]
+        output = _format_markdown(result)
+        assert "\x1b[" not in output
+        assert "\033[" not in output
+
+    def test_markdown_cli_flag(self, tmp_path):
+        """--format markdown produces markdown output via CLI."""
+        runner = CliRunner(mix_stderr=False)
+        plan_path = tmp_path / "plan.json"
+        plan = make_plan([
+            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+        ])
+        plan_path.write_text(json.dumps(plan))
+
+        with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None):
+            result = runner.invoke(
+                create_cli(),
+                ["analyze", str(plan_path), "--format", "markdown"],
+                obj=make_obj(tmp_path),
+            )
+        assert result.exit_code == 0
+        assert "## Terraform Risk Analysis" in result.output
+        assert "| Metric | Value |" in result.output
+
+    def test_markdown_truncates_long_text(self):
+        from fixdoc.commands.analyze import _format_markdown
+        long_issue = "A" * 120
+        warnings = [{
+            "short_id": "trunc001",
+            "issue": long_issue,
+            "resolution": "Fixed",
+            "tags": "",
+            "created_at": "2024-01-15",
+            "match_reason": "tag_match",
+            "confidence": "low",
+            "score": 40,
+            "matched_resources": [],
+        }]
+        result = _make_result_with_warnings(warnings)
+        result.relevant_fixes = warnings
+        output = _format_markdown(result)
+        # Should be truncated to 80 chars + "..."
+        assert "A" * 80 + "..." in output
+        assert "A" * 120 not in output

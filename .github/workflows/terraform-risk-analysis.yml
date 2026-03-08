@@ -1,29 +1,210 @@
 name: Terraform Risk Analysis
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "scenarios/**"
   pull_request:
     paths:
       - "**/*.tf"
       - "**/*.tfvars"
+      - "scenarios/**"
+  workflow_dispatch:
+    inputs:
+      review_mode:
+        description: "Review mode: advisory, warn, or gate"
+        required: false
+        default: "advisory"
+        type: choice
+        options:
+          - advisory
+          - warn
+          - gate
+      gate_threshold:
+        description: "Gate threshold severity (only used when review_mode=gate)"
+        required: false
+        default: "high"
+        type: choice
+        options:
+          - low
+          - medium
+          - high
+          - critical
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  REVIEW_MODE: ${{ github.event.inputs.review_mode || 'advisory' }}
+  GATE_THRESHOLD: ${{ github.event.inputs.gate_threshold || 'high' }}
 
 jobs:
-  risk-check:
+  risk-analysis:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - 11-analyze-create-only-non-boundary
+          - 12-analyze-iam-deep-chain
+          - 13-analyze-replace-delete-heavy
+          - 14-analyze-bad-plan
+          - 15-analyze-no-op-plan
+          - 16-analyze-huge-plan
+          - 17-analyze-word-boundary-traps
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      - uses: actions/checkout@v4
+
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Install fixdoc
-        run: pip install fixdoc
-      - name: Terraform Init
-        run: terraform init
-      - name: Terraform Plan
-        run: terraform plan -out=plan.tfplan
-      - name: Analyze Risk
+        run: pip install -e .
+
+      - name: Run analysis
+        id: analyze
+        working-directory: scenarios/${{ matrix.scenario }}
         run: |
-          terraform show -json plan.tfplan > plan.json
-          fixdoc blast-radius plan.json --exit-on high
+          GRAPH_FLAG=""
+          if [ -f graph.dot ]; then
+            GRAPH_FLAG="--graph graph.dot"
+          fi
+
+          # Generate markdown output
+          fixdoc analyze plan.json --format markdown $GRAPH_FLAG > analysis.md 2>/dev/null || true
+
+          # Generate JSON output and extract severity
+          fixdoc analyze plan.json --format json $GRAPH_FLAG > analysis.json 2>/dev/null || true
+
+          if [ -f analysis.json ] && python3 -c "import json; json.load(open('analysis.json'))" 2>/dev/null; then
+            SEVERITY=$(python3 -c "import json; print(json.load(open('analysis.json')).get('severity', 'unknown'))")
+            SCORE=$(python3 -c "import json; print(int(json.load(open('analysis.json')).get('score', 0)))")
+          else
+            SEVERITY="unknown"
+            SCORE="0"
+          fi
+
+          echo "severity=$SEVERITY" >> "$GITHUB_OUTPUT"
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+          echo "scenario=${{ matrix.scenario }}" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        working-directory: scenarios/${{ matrix.scenario }}
+        run: |
+          if [ -f analysis.md ]; then
+            cat analysis.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No analysis output for ${{ matrix.scenario }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload analysis artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-${{ matrix.scenario }}
+          path: |
+            scenarios/${{ matrix.scenario }}/analysis.md
+            scenarios/${{ matrix.scenario }}/analysis.json
+
+      - name: Warn on high/critical severity
+        if: env.REVIEW_MODE == 'warn' || env.REVIEW_MODE == 'gate'
+        run: |
+          SEVERITY="${{ steps.analyze.outputs.severity }}"
+          if [ "$SEVERITY" = "high" ] || [ "$SEVERITY" = "critical" ]; then
+            echo "::warning::${{ matrix.scenario }}: Risk severity is ${SEVERITY^^} (${{ steps.analyze.outputs.score }}/100)"
+          fi
+
+      - name: Gate check
+        if: env.REVIEW_MODE == 'gate'
+        working-directory: scenarios/${{ matrix.scenario }}
+        run: |
+          GRAPH_FLAG=""
+          if [ -f graph.dot ]; then
+            GRAPH_FLAG="--graph graph.dot"
+          fi
+          fixdoc analyze plan.json --exit-on "$GATE_THRESHOLD" $GRAPH_FLAG
+
+  comment:
+    needs: risk-analysis
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Download all analysis artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: analysis-*
+          path: results
+
+      - name: Build PR comment
+        run: |
+          COMMENT_FILE=$(mktemp)
+          cat > "$COMMENT_FILE" << 'HEADER'
+          <!-- fixdoc-risk-analysis -->
+          ## FixDoc Risk Analysis Summary
+
+          HEADER
+
+          for dir in results/analysis-*/; do
+            SCENARIO=$(basename "$dir" | sed 's/^analysis-//')
+            MD_FILE="$dir/analysis.md"
+            JSON_FILE="$dir/analysis.json"
+
+            if [ -f "$JSON_FILE" ] && python3 -c "import json; json.load(open('$JSON_FILE'))" 2>/dev/null; then
+              SEVERITY=$(python3 -c "import json; print(json.load(open('$JSON_FILE')).get('severity', 'unknown').upper())")
+              SCORE=$(python3 -c "import json; print(int(json.load(open('$JSON_FILE')).get('score', 0)))")
+
+              case "$SEVERITY" in
+                CRITICAL) EMOJI=":red_circle:" ;;
+                HIGH)     EMOJI=":warning:" ;;
+                MEDIUM)   EMOJI=":large_blue_circle:" ;;
+                LOW)      EMOJI=":white_check_mark:" ;;
+                *)        EMOJI="" ;;
+              esac
+
+              echo "<details>" >> "$COMMENT_FILE"
+              echo "<summary>${SCENARIO} — ${EMOJI} ${SEVERITY} (${SCORE}/100)</summary>" >> "$COMMENT_FILE"
+              echo "" >> "$COMMENT_FILE"
+
+              if [ -f "$MD_FILE" ]; then
+                cat "$MD_FILE" >> "$COMMENT_FILE"
+              else
+                echo "No markdown output available." >> "$COMMENT_FILE"
+              fi
+
+              echo "" >> "$COMMENT_FILE"
+              echo "</details>" >> "$COMMENT_FILE"
+              echo "" >> "$COMMENT_FILE"
+            fi
+          done
+
+          echo "---" >> "$COMMENT_FILE"
+          echo "<sub>Generated by FixDoc</sub>" >> "$COMMENT_FILE"
+
+          echo "COMMENT_FILE=$COMMENT_FILE" >> "$GITHUB_ENV"
+
+      - name: Post or update PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          MARKER="<!-- fixdoc-risk-analysis -->"
+
+          # Find existing comment
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
+
+          if [ -n "$EXISTING" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${EXISTING}" \
+              -X PATCH -F "body=@${COMMENT_FILE}"
+          else
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              -X POST -F "body=@${COMMENT_FILE}"
+          fi
