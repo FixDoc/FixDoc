@@ -7,11 +7,15 @@ on:
       - "**/*.tf"
       - "**/*.tfvars"
       - "scenarios/**"
+      - ".github/workflows/terraform-risk-analysis.yml"
+      - "src/**/*.py"
   pull_request:
     paths:
       - "**/*.tf"
       - "**/*.tfvars"
       - "scenarios/**"
+      - ".github/workflows/terraform-risk-analysis.yml"
+      - "src/**/*.py"
   workflow_dispatch:
     inputs:
       review_mode:
