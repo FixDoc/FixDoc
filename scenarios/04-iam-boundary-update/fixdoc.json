@@ -1,0 +1,102 @@
+{
+  "analysis_id": "162e9cfe",
+  "timestamp": "2026-03-07T10:47:04.385003+00:00",
+  "score": 18.5,
+  "severity": "low",
+  "changes": [
+    {
+      "address": "aws_iam_role_policy.inline",
+      "resource_type": "aws_iam_role_policy",
+      "action": "update",
+      "cloud_provider": "aws",
+      "is_control_point": true,
+      "category": "iam",
+      "criticality": 0.9
+    }
+  ],
+  "control_points": [
+    {
+      "address": "aws_iam_role_policy.inline",
+      "resource_type": "aws_iam_role_policy",
+      "action": "update",
+      "category": "iam",
+      "criticality": 0.9
+    }
+  ],
+  "affected": [
+    {
+      "address": "aws_iam_instance_profile.profile",
+      "depth": 1,
+      "path": [
+        "aws_iam_role.app_role",
+        "aws_iam_instance_profile.profile"
+      ]
+    },
+    {
+      "address": "aws_instance.app",
+      "depth": 2,
+      "path": [
+        "aws_iam_role.app_role",
+        "aws_iam_instance_profile.profile",
+        "aws_instance.app"
+      ]
+    }
+  ],
+  "why_paths": [
+    {
+      "target": "aws_iam_instance_profile.profile",
+      "depth": 1,
+      "path": [
+        "aws_iam_role.app_role",
+        "aws_iam_instance_profile.profile"
+      ]
+    },
+    {
+      "target": "aws_instance.app",
+      "depth": 2,
+      "path": [
+        "aws_iam_role.app_role",
+        "aws_iam_instance_profile.profile",
+        "aws_instance.app"
+      ]
+    }
+  ],
+  "checks": [
+    "Review inline policy for least-privilege"
+  ],
+  "history_matches": [],
+  "plan_summary": {
+    "total_changes": 1,
+    "control_points": 1,
+    "affected_resources": 2,
+    "by_action": {
+      "update": 1
+    }
+  },
+  "resource_warnings": [],
+  "score_explanation": [
+    {
+      "label": "update aws_iam_role_policy.inline (boundary resource)",
+      "delta": 7.5,
+      "kind": "action"
+    },
+    {
+      "label": "IAM policy field changed on aws_iam_role_policy.inline",
+      "delta": 8.0,
+      "kind": "iam"
+    },
+    {
+      "label": "2 downstream resource(s) affected via dependency graph",
+      "delta": 3.0,
+      "kind": "impact"
+    }
+  ],
+  "relevant_fixes": [],
+  "contextual_checks": [
+    {
+      "check": "Review inline policy for least-privilege",
+      "source": "attribute",
+      "resource": "aws_iam_role_policy.inline"
+    }
+  ]
+}

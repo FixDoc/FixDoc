@@ -1,0 +1,45 @@
+{
+  "analysis_id": "b7e1e22f",
+  "timestamp": "2026-03-07T10:49:58.119255+00:00",
+  "score": 2.4,
+  "severity": "low",
+  "changes": [
+    {
+      "address": "aws_s3_bucket.baseline",
+      "resource_type": "aws_s3_bucket",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    }
+  ],
+  "control_points": [],
+  "affected": [],
+  "why_paths": [],
+  "checks": [],
+  "history_matches": [],
+  "plan_summary": {
+    "total_changes": 1,
+    "control_points": 0,
+    "affected_resources": 0,
+    "by_action": {
+      "create": 1
+    }
+  },
+  "resource_warnings": [],
+  "score_explanation": [
+    {
+      "label": "create aws_s3_bucket.baseline (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "Greenfield plan (all creates, no cross-boundary impact) \u2014 capped at MEDIUM",
+      "delta": 0.0,
+      "kind": "modifier"
+    }
+  ],
+  "relevant_fixes": [],
+  "contextual_checks": []
+}

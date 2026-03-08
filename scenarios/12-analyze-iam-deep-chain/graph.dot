@@ -1,0 +1,20 @@
+digraph G {
+  rankdir = "RL";
+  node [shape = rect, fontname = "sans-serif"];
+  "aws_iam_instance_profile.app" [label="aws_iam_instance_profile.app"];
+  "aws_iam_policy.app" [label="aws_iam_policy.app"];
+  "aws_iam_role.app" [label="aws_iam_role.app"];
+  "aws_iam_role_policy_attachment.app" [label="aws_iam_role_policy_attachment.app"];
+  "aws_instance.app" [label="aws_instance.app"];
+  "aws_security_group.app" [label="aws_security_group.app"];
+  "aws_subnet.public" [label="aws_subnet.public"];
+  "aws_vpc.main" [label="aws_vpc.main"];
+  "aws_iam_instance_profile.app" -> "aws_iam_role.app";
+  "aws_iam_role_policy_attachment.app" -> "aws_iam_policy.app";
+  "aws_iam_role_policy_attachment.app" -> "aws_iam_role.app";
+  "aws_instance.app" -> "aws_iam_instance_profile.app";
+  "aws_instance.app" -> "aws_security_group.app";
+  "aws_instance.app" -> "aws_subnet.public";
+  "aws_security_group.app" -> "aws_vpc.main";
+  "aws_subnet.public" -> "aws_vpc.main";
+}

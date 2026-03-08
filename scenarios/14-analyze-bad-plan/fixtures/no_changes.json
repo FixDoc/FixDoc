@@ -1,0 +1,16 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.8.0",
+  "variables": {},
+  "planned_values": {
+    "root_module": {}
+  },
+  "resource_changes": [],
+  "configuration": {
+    "root_module": {}
+  },
+  "timestamp": "2024-01-01T00:00:00Z",
+  "applyable": false,
+  "complete": true,
+  "errored": false
+}

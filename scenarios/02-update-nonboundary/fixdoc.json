@@ -1,0 +1,361 @@
+{
+  "analysis_id": "4f478ff5",
+  "timestamp": "2026-03-07T10:45:12.836047+00:00",
+  "score": 10.0,
+  "severity": "low",
+  "changes": [
+    {
+      "address": "aws_instance.app",
+      "resource_type": "aws_instance",
+      "action": "update",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    }
+  ],
+  "control_points": [],
+  "affected": [],
+  "why_paths": [],
+  "checks": [
+    "Verify instance type availability in target AZ and region"
+  ],
+  "history_matches": [
+    {
+      "id": "9c8242a1",
+      "issue": "module.app_a.aws_instance.app: InvalidInstanceType: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInst",
+      "resource_type": "aws_instance"
+    }
+  ],
+  "plan_summary": {
+    "total_changes": 1,
+    "control_points": 0,
+    "affected_resources": 0,
+    "by_action": {
+      "update": 1
+    }
+  },
+  "resource_warnings": [
+    {
+      "fix_id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "short_id": "9c8242a1",
+      "issue": "module.app_a.aws_instance.app: InvalidInstanceType: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInst",
+      "resolution": "deleted the module",
+      "tags": "terraform,aws,aws_instance,InvalidInstanceType,terraform,aws,aws_instance,InvalidInstanceType",
+      "created_at": "2026-03-05T02:43:35.524290+00:00",
+      "error_excerpt": "Error: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInstanceTypes, https response error StatusCode: 400, RequestID: 5c937bd6-cac8-4ee9-86f1-62a920887005, api error InvalidInstanceType: The following supplied instance types do not exist: [grgr]\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\u001b[0m  with module.app_a.aws_instance.app,\n\u001b[31m\u2502\u001b[0m \u001b[0m  on modules/app/main.tf line 2, in resource \"aws_instance\" \"app\":\n\u001b[31m\u2502\u001b[0m \u001b[0m   2: resource \"aws_instance\" \"app\" \u001b[4m{\u001b[0m\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2575\u001b[0m\u001b[0m",
+      "score": 180,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "error_code",
+        "detail": "invalidinstancetype",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "2 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "short_id": "04e3ef11",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T02:04:40.840856+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "short_id": "a1f50f57",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T12:58:25.145341+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "short_id": "4c652e91",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T13:24:55.090124+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "10414504-6c5b-4812-9529-4e04582addac",
+      "id": "10414504-6c5b-4812-9529-4e04582addac",
+      "short_id": "10414504",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-04T01:50:44.688825+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    }
+  ],
+  "score_explanation": [
+    {
+      "label": "update aws_instance.app",
+      "delta": 5.0,
+      "kind": "action"
+    },
+    {
+      "label": "Prior similar incident detected in fix history (1 match)",
+      "delta": 5.0,
+      "kind": "history"
+    }
+  ],
+  "relevant_fixes": [
+    {
+      "fix_id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "short_id": "9c8242a1",
+      "issue": "module.app_a.aws_instance.app: InvalidInstanceType: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInst",
+      "resolution": "deleted the module",
+      "tags": "terraform,aws,aws_instance,InvalidInstanceType,terraform,aws,aws_instance,InvalidInstanceType",
+      "created_at": "2026-03-05T02:43:35.524290+00:00",
+      "error_excerpt": "Error: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInstanceTypes, https response error StatusCode: 400, RequestID: 5c937bd6-cac8-4ee9-86f1-62a920887005, api error InvalidInstanceType: The following supplied instance types do not exist: [grgr]\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\u001b[0m  with module.app_a.aws_instance.app,\n\u001b[31m\u2502\u001b[0m \u001b[0m  on modules/app/main.tf line 2, in resource \"aws_instance\" \"app\":\n\u001b[31m\u2502\u001b[0m \u001b[0m   2: resource \"aws_instance\" \"app\" \u001b[4m{\u001b[0m\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2575\u001b[0m\u001b[0m",
+      "score": 180,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "error_code",
+        "detail": "invalidinstancetype",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "2 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "short_id": "04e3ef11",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T02:04:40.840856+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "short_id": "a1f50f57",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T12:58:25.145341+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "short_id": "4c652e91",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T13:24:55.090124+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "10414504-6c5b-4812-9529-4e04582addac",
+      "id": "10414504-6c5b-4812-9529-4e04582addac",
+      "short_id": "10414504",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-04T01:50:44.688825+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "update"
+        }
+      ]
+    }
+  ],
+  "contextual_checks": [
+    {
+      "check": "Verify instance type availability in target AZ and region",
+      "source": "attribute",
+      "resource": "aws_instance.app"
+    }
+  ]
+}

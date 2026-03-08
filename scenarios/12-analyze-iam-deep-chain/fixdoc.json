@@ -1,0 +1,747 @@
+{
+  "analysis_id": "390102fd",
+  "timestamp": "2026-03-07T10:48:41.282668+00:00",
+  "score": 45.0,
+  "severity": "medium",
+  "changes": [
+    {
+      "address": "aws_iam_role.app",
+      "resource_type": "aws_iam_role",
+      "action": "update",
+      "cloud_provider": "aws",
+      "is_control_point": true,
+      "category": "iam",
+      "criticality": 0.9
+    }
+  ],
+  "control_points": [
+    {
+      "address": "aws_iam_role.app",
+      "resource_type": "aws_iam_role",
+      "action": "update",
+      "category": "iam",
+      "criticality": 0.9
+    }
+  ],
+  "affected": [
+    {
+      "address": "aws_iam_instance_profile.app",
+      "depth": 1,
+      "path": [
+        "aws_iam_role.app",
+        "aws_iam_instance_profile.app"
+      ]
+    },
+    {
+      "address": "aws_iam_role_policy_attachment.app",
+      "depth": 1,
+      "path": [
+        "aws_iam_role.app",
+        "aws_iam_role_policy_attachment.app"
+      ]
+    },
+    {
+      "address": "aws_instance.app",
+      "depth": 2,
+      "path": [
+        "aws_iam_role.app",
+        "aws_iam_instance_profile.app",
+        "aws_instance.app"
+      ]
+    }
+  ],
+  "why_paths": [
+    {
+      "target": "aws_iam_instance_profile.app",
+      "depth": 1,
+      "path": [
+        "aws_iam_role.app",
+        "aws_iam_instance_profile.app"
+      ]
+    },
+    {
+      "target": "aws_iam_role_policy_attachment.app",
+      "depth": 1,
+      "path": [
+        "aws_iam_role.app",
+        "aws_iam_role_policy_attachment.app"
+      ]
+    },
+    {
+      "target": "aws_instance.app",
+      "depth": 2,
+      "path": [
+        "aws_iam_role.app",
+        "aws_iam_instance_profile.app",
+        "aws_instance.app"
+      ]
+    }
+  ],
+  "checks": [
+    "Audit trust policy principals for wildcard or cross-account access",
+    "Prior fix: Added missing iam:PassRole permission"
+  ],
+  "history_matches": [
+    {
+      "id": "a6de82e0",
+      "issue": "Terraform error with HTML formatting",
+      "resource_type": "aws_iam_role"
+    },
+    {
+      "id": "a1ac65bd",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resource_type": "aws_iam_role"
+    },
+    {
+      "id": "54c374c8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resource_type": "aws_iam_role"
+    }
+  ],
+  "plan_summary": {
+    "total_changes": 1,
+    "control_points": 1,
+    "affected_resources": 3,
+    "by_action": {
+      "update": 1
+    }
+  },
+  "resource_warnings": [
+    {
+      "fix_id": "a6de82e0-d340-4433-938e-f5a0d2aab29b",
+      "id": "a6de82e0-d340-4433-938e-f5a0d2aab29b",
+      "short_id": "a6de82e0",
+      "issue": "Terraform error with HTML formatting",
+      "resolution": "Added missing iam:PassRole permission",
+      "tags": "aws_iam_role,kw:iam,kw:terraform,source:servicenow:inc0010044",
+      "created_at": "2026-03-03T01:59:17.226172+00:00",
+      "error_excerpt": "Error: AccessDenied on aws_iam_role",
+      "score": 180,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "error_code",
+        "detail": "accessdenied",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "a1ac65bd-eed1-42e2-9cf5-3df332597dcb",
+      "id": "a1ac65bd-eed1-42e2-9cf5-3df332597dcb",
+      "short_id": "a1ac65bd",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.229641+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "54c374c8-267f-4b53-b6f8-3270bb6d659d",
+      "id": "54c374c8-267f-4b53-b6f8-3270bb6d659d",
+      "short_id": "54c374c8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.237496+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "08dce80b-c872-4cfa-aac0-0dd02b664308",
+      "id": "08dce80b-c872-4cfa-aac0-0dd02b664308",
+      "short_id": "08dce80b",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.245168+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "f8b51fb8-f5b5-4881-b800-657807cb9b47",
+      "id": "f8b51fb8-f5b5-4881-b800-657807cb9b47",
+      "short_id": "f8b51fb8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.250018+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "6b6707d8-6069-411e-a73a-edc9866dff5f",
+      "id": "6b6707d8-6069-411e-a73a-edc9866dff5f",
+      "short_id": "6b6707d8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.270104+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "2504ab6c-2b4e-400c-b51b-e0e5b7a6d618",
+      "id": "2504ab6c-2b4e-400c-b51b-e0e5b7a6d618",
+      "short_id": "2504ab6c",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.279574+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "78b4fe7e-0874-4de1-b2bf-af3d52ff020d",
+      "id": "78b4fe7e-0874-4de1-b2bf-af3d52ff020d",
+      "short_id": "78b4fe7e",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.283120+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "b2754561-6d05-4ed7-9617-74d793c6089d",
+      "id": "b2754561-6d05-4ed7-9617-74d793c6089d",
+      "short_id": "b2754561",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T12:58:25.882977+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "c4050968-1713-4d68-8926-d7e7e20eb694",
+      "id": "c4050968-1713-4d68-8926-d7e7e20eb694",
+      "short_id": "c4050968",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T12:58:25.897975+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    }
+  ],
+  "score_explanation": [
+    {
+      "label": "update aws_iam_role.app (boundary resource)",
+      "delta": 7.5,
+      "kind": "action"
+    },
+    {
+      "label": "IAM trust expanded on aws_iam_role.app: lambda.amazonaws.com",
+      "delta": 18.0,
+      "kind": "iam"
+    },
+    {
+      "label": "3 downstream resource(s) affected via dependency graph",
+      "delta": 4.5,
+      "kind": "impact"
+    },
+    {
+      "label": "Prior similar incidents detected in fix history (3 matches)",
+      "delta": 15.0,
+      "kind": "history"
+    }
+  ],
+  "relevant_fixes": [
+    {
+      "fix_id": "a6de82e0-d340-4433-938e-f5a0d2aab29b",
+      "id": "a6de82e0-d340-4433-938e-f5a0d2aab29b",
+      "short_id": "a6de82e0",
+      "issue": "Terraform error with HTML formatting",
+      "resolution": "Added missing iam:PassRole permission",
+      "tags": "aws_iam_role,kw:iam,kw:terraform,source:servicenow:inc0010044",
+      "created_at": "2026-03-03T01:59:17.226172+00:00",
+      "error_excerpt": "Error: AccessDenied on aws_iam_role",
+      "score": 180,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "error_code",
+        "detail": "accessdenied",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "a1ac65bd-eed1-42e2-9cf5-3df332597dcb",
+      "id": "a1ac65bd-eed1-42e2-9cf5-3df332597dcb",
+      "short_id": "a1ac65bd",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.229641+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "54c374c8-267f-4b53-b6f8-3270bb6d659d",
+      "id": "54c374c8-267f-4b53-b6f8-3270bb6d659d",
+      "short_id": "54c374c8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.237496+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "08dce80b-c872-4cfa-aac0-0dd02b664308",
+      "id": "08dce80b-c872-4cfa-aac0-0dd02b664308",
+      "short_id": "08dce80b",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.245168+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "f8b51fb8-f5b5-4881-b800-657807cb9b47",
+      "id": "f8b51fb8-f5b5-4881-b800-657807cb9b47",
+      "short_id": "f8b51fb8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.250018+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "6b6707d8-6069-411e-a73a-edc9866dff5f",
+      "id": "6b6707d8-6069-411e-a73a-edc9866dff5f",
+      "short_id": "6b6707d8",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.270104+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "2504ab6c-2b4e-400c-b51b-e0e5b7a6d618",
+      "id": "2504ab6c-2b4e-400c-b51b-e0e5b7a6d618",
+      "short_id": "2504ab6c",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.279574+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "78b4fe7e-0874-4de1-b2bf-af3d52ff020d",
+      "id": "78b4fe7e-0874-4de1-b2bf-af3d52ff020d",
+      "short_id": "78b4fe7e",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T02:04:41.283120+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "b2754561-6d05-4ed7-9617-74d793c6089d",
+      "id": "b2754561-6d05-4ed7-9617-74d793c6089d",
+      "short_id": "b2754561",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T12:58:25.882977+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    },
+    {
+      "fix_id": "c4050968-1713-4d68-8926-d7e7e20eb694",
+      "id": "c4050968-1713-4d68-8926-d7e7e20eb694",
+      "short_id": "c4050968",
+      "issue": "aws_iam_role.app: AccessDenied",
+      "resolution": "Added role binding",
+      "tags": "aws,terraform",
+      "created_at": "2026-03-03T12:58:25.897975+00:00",
+      "error_excerpt": "",
+      "score": 150,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "address",
+        "detail": "aws_iam_role.app",
+        "resource_type": "aws_iam_role",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_iam_role.app",
+          "action": "update"
+        }
+      ]
+    }
+  ],
+  "contextual_checks": [
+    {
+      "check": "Audit trust policy principals for wildcard or cross-account access",
+      "source": "attribute",
+      "resource": "aws_iam_role.app"
+    },
+    {
+      "check": "Prior fix: Added missing iam:PassRole permission",
+      "source": "history",
+      "resource": "aws_iam_role.app"
+    }
+  ]
+}

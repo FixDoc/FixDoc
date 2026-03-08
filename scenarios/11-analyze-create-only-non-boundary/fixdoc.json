@@ -1,0 +1,527 @@
+{
+  "analysis_id": "0833f0c7",
+  "timestamp": "2026-03-07T10:48:01.251268+00:00",
+  "score": 24.4,
+  "severity": "low",
+  "changes": [
+    {
+      "address": "aws_instance.app",
+      "resource_type": "aws_instance",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    },
+    {
+      "address": "aws_s3_bucket.data",
+      "resource_type": "aws_s3_bucket",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    },
+    {
+      "address": "aws_s3_bucket.logs",
+      "resource_type": "aws_s3_bucket",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    },
+    {
+      "address": "aws_subnet.public_a",
+      "resource_type": "aws_subnet",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    },
+    {
+      "address": "aws_subnet.public_b",
+      "resource_type": "aws_subnet",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    },
+    {
+      "address": "aws_vpc.main",
+      "resource_type": "aws_vpc",
+      "action": "create",
+      "cloud_provider": "aws",
+      "is_control_point": false,
+      "category": "",
+      "criticality": 0.0
+    }
+  ],
+  "control_points": [],
+  "affected": [],
+  "why_paths": [],
+  "checks": [
+    "Confirm AMI exists and is shared to this account",
+    "Verify instance type availability in target AZ and region",
+    "Subnet CIDR change forces replacement \u2014 check ENI dependencies",
+    "CIDR change forces replacement \u2014 verify peering/route table dependencies"
+  ],
+  "history_matches": [
+    {
+      "id": "9c8242a1",
+      "issue": "module.app_a.aws_instance.app: InvalidInstanceType: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInst",
+      "resource_type": "aws_instance"
+    },
+    {
+      "id": "8b9275a7",
+      "issue": "JSON blob in description",
+      "resource_type": "aws_subnet"
+    }
+  ],
+  "plan_summary": {
+    "total_changes": 6,
+    "control_points": 0,
+    "affected_resources": 0,
+    "by_action": {
+      "create": 6
+    }
+  },
+  "resource_warnings": [
+    {
+      "fix_id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "short_id": "9c8242a1",
+      "issue": "module.app_a.aws_instance.app: InvalidInstanceType: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInst",
+      "resolution": "deleted the module",
+      "tags": "terraform,aws,aws_instance,InvalidInstanceType,terraform,aws,aws_instance,InvalidInstanceType",
+      "created_at": "2026-03-05T02:43:35.524290+00:00",
+      "error_excerpt": "Error: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInstanceTypes, https response error StatusCode: 400, RequestID: 5c937bd6-cac8-4ee9-86f1-62a920887005, api error InvalidInstanceType: The following supplied instance types do not exist: [grgr]\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\u001b[0m  with module.app_a.aws_instance.app,\n\u001b[31m\u2502\u001b[0m \u001b[0m  on modules/app/main.tf line 2, in resource \"aws_instance\" \"app\":\n\u001b[31m\u2502\u001b[0m \u001b[0m   2: resource \"aws_instance\" \"app\" \u001b[4m{\u001b[0m\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2575\u001b[0m\u001b[0m",
+      "score": 180,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "error_code",
+        "detail": "invalidinstancetype",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "2 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "8b9275a7-038b-4c8c-a21e-cb48ce8bae26",
+      "id": "8b9275a7-038b-4c8c-a21e-cb48ce8bae26",
+      "short_id": "8b9275a7",
+      "issue": "JSON blob in description",
+      "resolution": "Updated subnet CIDR block.",
+      "tags": "aws_subnet,kw:subnet,source:servicenow:inc0010045",
+      "created_at": "2026-03-03T01:59:17.226437+00:00",
+      "error_excerpt": "{\"error\":\"InvalidSubnet\",\"resource\":\"aws_subnet.private\"}",
+      "score": 70,
+      "confidence": "medium",
+      "match_reason": {
+        "signal": "resource_type_tag",
+        "detail": "aws_subnet",
+        "resource_type": "aws_subnet",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "medium"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_subnet.public_a",
+          "action": "create"
+        },
+        {
+          "address": "aws_subnet.public_b",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "short_id": "04e3ef11",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T02:04:40.840856+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "short_id": "a1f50f57",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T12:58:25.145341+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "short_id": "4c652e91",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T13:24:55.090124+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "10414504-6c5b-4812-9529-4e04582addac",
+      "id": "10414504-6c5b-4812-9529-4e04582addac",
+      "short_id": "10414504",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-04T01:50:44.688825+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    }
+  ],
+  "score_explanation": [
+    {
+      "label": "create aws_instance.app (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "create aws_s3_bucket.data (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "create aws_s3_bucket.logs (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "create aws_subnet.public_a (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "create aws_subnet.public_b (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "create aws_vpc.main (greenfield)",
+      "delta": 2.4,
+      "kind": "action"
+    },
+    {
+      "label": "Prior similar incidents detected in fix history (2 matches)",
+      "delta": 10.0,
+      "kind": "history"
+    },
+    {
+      "label": "Greenfield plan (all creates, no cross-boundary impact) \u2014 capped at MEDIUM",
+      "delta": 0.0,
+      "kind": "modifier"
+    }
+  ],
+  "relevant_fixes": [
+    {
+      "fix_id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "id": "9c8242a1-6930-44a2-adb0-a870f09dffc5",
+      "short_id": "9c8242a1",
+      "issue": "module.app_a.aws_instance.app: InvalidInstanceType: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInst",
+      "resolution": "deleted the module",
+      "tags": "terraform,aws,aws_instance,InvalidInstanceType,terraform,aws,aws_instance,InvalidInstanceType",
+      "created_at": "2026-03-05T02:43:35.524290+00:00",
+      "error_excerpt": "Error: \u001b[0m\u001b[0m\u001b[1mreading EC2 Instance Type (grgr): operation error EC2: DescribeInstanceTypes, https response error StatusCode: 400, RequestID: 5c937bd6-cac8-4ee9-86f1-62a920887005, api error InvalidInstanceType: The following supplied instance types do not exist: [grgr]\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\u001b[0m  with module.app_a.aws_instance.app,\n\u001b[31m\u2502\u001b[0m \u001b[0m  on modules/app/main.tf line 2, in resource \"aws_instance\" \"app\":\n\u001b[31m\u2502\u001b[0m \u001b[0m   2: resource \"aws_instance\" \"app\" \u001b[4m{\u001b[0m\u001b[0m\n\u001b[31m\u2502\u001b[0m \u001b[0m\n\u001b[31m\u2575\u001b[0m\u001b[0m",
+      "score": 180,
+      "confidence": "high",
+      "match_reason": {
+        "signal": "error_code",
+        "detail": "invalidinstancetype",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "2 days ago"
+          }
+        ],
+        "confidence": "high"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "8b9275a7-038b-4c8c-a21e-cb48ce8bae26",
+      "id": "8b9275a7-038b-4c8c-a21e-cb48ce8bae26",
+      "short_id": "8b9275a7",
+      "issue": "JSON blob in description",
+      "resolution": "Updated subnet CIDR block.",
+      "tags": "aws_subnet,kw:subnet,source:servicenow:inc0010045",
+      "created_at": "2026-03-03T01:59:17.226437+00:00",
+      "error_excerpt": "{\"error\":\"InvalidSubnet\",\"resource\":\"aws_subnet.private\"}",
+      "score": 70,
+      "confidence": "medium",
+      "match_reason": {
+        "signal": "resource_type_tag",
+        "detail": "aws_subnet",
+        "resource_type": "aws_subnet",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "medium"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_subnet.public_a",
+          "action": "create"
+        },
+        {
+          "address": "aws_subnet.public_b",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "id": "04e3ef11-d9db-4688-88a4-a4510c00a514",
+      "short_id": "04e3ef11",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T02:04:40.840856+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "4 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "id": "a1f50f57-52ad-4241-9195-38a19a19cc3c",
+      "short_id": "a1f50f57",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T12:58:25.145341+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "id": "4c652e91-adfc-4d5f-b2ec-720013357a80",
+      "short_id": "4c652e91",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-03T13:24:55.090124+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "fix_id": "10414504-6c5b-4812-9529-4e04582addac",
+      "id": "10414504-6c5b-4812-9529-4e04582addac",
+      "short_id": "10414504",
+      "issue": "aws_instance.web: InsufficientInstanceCapacity",
+      "resolution": "Changed AZ",
+      "tags": "",
+      "created_at": "2026-03-04T01:50:44.688825+00:00",
+      "error_excerpt": "",
+      "score": 50,
+      "confidence": "low",
+      "match_reason": {
+        "signal": "resource_type_text",
+        "detail": "aws_instance",
+        "resource_type": "aws_instance",
+        "supporting_signals": [
+          {
+            "signal": "recency",
+            "detail": "3 days ago"
+          }
+        ],
+        "confidence": "low"
+      },
+      "matched_resources": [
+        {
+          "address": "aws_instance.app",
+          "action": "create"
+        }
+      ]
+    }
+  ],
+  "contextual_checks": [
+    {
+      "check": "Confirm AMI exists and is shared to this account",
+      "source": "attribute",
+      "resource": "aws_instance.app"
+    },
+    {
+      "check": "Verify instance type availability in target AZ and region",
+      "source": "attribute",
+      "resource": "aws_instance.app"
+    },
+    {
+      "check": "Subnet CIDR change forces replacement \u2014 check ENI dependencies",
+      "source": "attribute",
+      "resource": "aws_subnet.public_a"
+    },
+    {
+      "check": "CIDR change forces replacement \u2014 verify peering/route table dependencies",
+      "source": "attribute",
+      "resource": "aws_vpc.main"
+    }
+  ]
+}
