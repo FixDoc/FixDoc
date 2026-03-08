@@ -443,7 +443,7 @@ class TestWatchIntegration:
         return mock_proc
 
     def test_watch_captures_terraform_error(self, tmp_path):
-        """Watch catches a failed terraform apply and skips capture on 's'."""
+        """Watch catches a failed terraform apply and auto-defers on 's'."""
         error_text = _load_fixture(ERRORS_DIR / "s3_bucket_conflict.txt")
         mock_proc = self._make_popen_mock(error_text, exit_code=1)
         parsed_err = _make_integration_parsed_error()
@@ -453,28 +453,25 @@ class TestWatchIntegration:
 
         with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
              patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "capture_single_error", return_value=None):
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            MockStore.return_value = MagicMock()
             result = runner.invoke(
                 cli,
                 ["watch", "--", "terraform", "apply"],
                 obj=make_obj(tmp_path),
-                input="s\n",  # Skip capture
+                input="s\n",  # Skip capture-now prompt
             )
 
         # Exit code preserved from wrapped command; skip path calls sys.exit(exit_code)
         assert result.exit_code == 1
 
-    def test_watch_no_prompt_triggers_capture(self, tmp_path):
-        """Watch --no-prompt auto-captures without interactive prompts."""
+    def test_watch_no_prompt_defers_error(self, tmp_path):
+        """Watch --no-prompt auto-defers errors to pending without interactive prompts."""
         error_text = _load_fixture(ERRORS_DIR / "ec2_capacity.txt")
         mock_proc = self._make_popen_mock(error_text, exit_code=1)
         parsed_err = _make_integration_parsed_error(
             resource_address="aws_instance.web",
             error_code="InsufficientInstanceCapacity",
-        )
-        mock_fix = Fix(
-            issue="aws_instance.web: InsufficientInstanceCapacity",
-            resolution="Changed AZ",
         )
 
         cli = create_cli()
@@ -482,7 +479,8 @@ class TestWatchIntegration:
 
         with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
              patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            store_instance = MockStore.return_value
             result = runner.invoke(
                 cli,
                 ["watch", "--no-prompt", "--", "terraform", "apply"],
@@ -490,19 +488,16 @@ class TestWatchIntegration:
             )
 
         assert result.exit_code == 1
-        assert "Fix saved" in result.output
+        assert "deferred to pending" in result.output.lower()
+        store_instance.save.assert_called_once()
 
-    def test_watch_with_tags(self, tmp_path):
-        """Watch --tags passes tags through to capture_single_error."""
+    def test_watch_with_tags_stored_in_deferred_entry(self, tmp_path):
+        """Watch --tags stores tags in the auto-deferred PendingEntry."""
         error_text = _load_fixture(ERRORS_DIR / "rds_subnet_coverage.txt")
         mock_proc = self._make_popen_mock(error_text, exit_code=1)
         parsed_err = _make_integration_parsed_error(
             resource_address="aws_db_instance.main",
             error_code="DBSubnetGroupDoesNotCoverEnoughAZs",
-        )
-        mock_fix = Fix(
-            issue="aws_db_instance.main: DBSubnetGroupDoesNotCoverEnoughAZs",
-            resolution="Added second subnet in different AZ",
         )
 
         cli = create_cli()
@@ -510,8 +505,8 @@ class TestWatchIntegration:
 
         with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
              patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "capture_single_error",
-                          return_value=mock_fix) as mock_cap:
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            store_instance = MockStore.return_value
             result = runner.invoke(
                 cli,
                 ["watch", "--tags", "infra-team", "--no-prompt",
@@ -520,20 +515,19 @@ class TestWatchIntegration:
             )
 
         assert result.exit_code == 1
-        # Verify the tags flag was forwarded to capture_single_error (3rd positional arg)
-        assert mock_cap.called
-        assert mock_cap.call_args[0][2] == "infra-team"
+        store_instance.save.assert_called_once()
 
     def test_watch_success_no_capture(self, tmp_path):
-        """Watch does not trigger capture when command succeeds."""
+        """Watch does not trigger capture when command succeeds and no pending."""
         mock_proc = self._make_popen_mock("Apply complete!", exit_code=0)
 
         cli = create_cli()
         runner = CliRunner()
 
-        with patch.object(
-            _watch_mod.subprocess, "Popen", return_value=mock_proc
-        ):
+        with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            instance = MockStore.return_value
+            instance.find_latest_session.return_value = []
             result = runner.invoke(
                 cli,
                 ["watch", "--", "terraform", "apply"],
@@ -541,7 +535,7 @@ class TestWatchIntegration:
             )
 
         assert result.exit_code == 0
-        assert "Capture this error?" not in result.output
+        assert "Deferred to pending" not in result.output
 
     def test_watch_preserves_exit_code(self, tmp_path):
         """Watch preserves the wrapped command's exit code on skip."""
@@ -557,7 +551,8 @@ class TestWatchIntegration:
 
         with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
              patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "capture_single_error", return_value=None):
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            MockStore.return_value = MagicMock()
             result = runner.invoke(
                 cli,
                 ["watch", "--", "terraform", "apply"],

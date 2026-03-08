@@ -3,7 +3,7 @@
 import click
 
 from .config import ConfigManager, resolve_base_path
-from .commands import capture, search, show, analyze, list_fixes, stats, delete, edit, sync, demo, watch, pending, import_group
+from .commands import capture, search, show, analyze, list_fixes, stats, delete, edit, sync, demo, watch, pending, import_group, resolve
 
 
 def create_cli() -> click.Group:
@@ -33,5 +33,6 @@ def create_cli() -> click.Group:
     cli.add_command(watch)
     cli.add_command(pending)
     cli.add_command(import_group)
+    cli.add_command(resolve)
 
     return cli

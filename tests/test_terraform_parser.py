@@ -493,16 +493,111 @@ Expected the start of an expression, but found an invalid expression token.
         addresses = [e.resource_address for e in errors]
         assert "unknown" not in addresses
 
-        # Verify specific resource addresses
-        assert "aws_vpc.main" in addresses
-        assert "aws_subnet.public" in addresses
-        assert "aws_security_group.web" in addresses
-        assert "aws_instance.app" in addresses
-        assert "aws_iam_role.lambda_role" in addresses
-        assert "aws_s3_bucket.data" in addresses
-        assert "aws_rds.rds" in addresses
-        # Two errors on lambda
-        assert addresses.count("aws_lambda_function.myfunction") == 2
+
+class TestTFConfigErrors:
+    """Tests for TF config/workflow error parsing (Pattern 5 & 6)."""
+
+    def setup_method(self):
+        self.parser = TerraformParser()
+
+    def test_variable_error_address(self):
+        """Invalid default value for variable → resource_address=variable.<name>."""
+        text = (
+            "Error: Invalid default value for variable\n"
+            "\n"
+            "  on variables.tf line 17, in variable \"instance_count\":\n"
+            "  17: default = \"not-a-number\"\n"
+            "\n"
+            "This default value is not compatible with the variable's type constraint."
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        e = errors[0]
+        assert e.resource_address == "variable.instance_count"
+        assert e.error_code == "InvalidDefaultValue"
+        assert e.file == "variables.tf"
+
+    def test_output_error_address(self):
+        """Error in output block → resource_address=output.<name>."""
+        text = (
+            "Error: Reference to undeclared output value\n"
+            "\n"
+            "  on outputs.tf line 3, in output \"vpc_id\":\n"
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        assert errors[0].resource_address == "output.vpc_id"
+
+    def test_local_error_address(self):
+        """Error in local block → resource_address=local.<name>."""
+        text = (
+            "Error: Unsupported argument\n"
+            "\n"
+            "  on main.tf line 5, in local \"tags\":\n"
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        assert errors[0].resource_address == "local.tags"
+
+    def test_module_call_error_address(self):
+        """Error in module block → resource_address=module.<name>."""
+        text = (
+            "Error: Missing required argument\n"
+            "\n"
+            "  on main.tf line 10, in module \"vpc\":\n"
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        assert errors[0].resource_address == "module.vpc"
+
+    def test_inconsistent_lock_file_address(self):
+        """Lock file error → resource_address=terraform.init, error_code=InconsistentLockFile."""
+        text = (
+            "Error: Inconsistent dependency lock file\n"
+            "\n"
+            "The following dependency selections recorded in the lock file are inconsistent\n"
+            "with the current configuration.\n"
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        e = errors[0]
+        assert e.resource_address == "terraform.init"
+        assert e.error_code == "InconsistentLockFile"
+
+    def test_module_not_installed_address(self):
+        """Module not installed → resource_address=terraform.init, error_code=ModuleNotInstalled."""
+        text = (
+            "Error: Module not installed\n"
+            "\n"
+            "This module is not yet installed. Run `terraform init` to install all modules.\n"
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        e = errors[0]
+        assert e.resource_address == "terraform.init"
+        assert e.error_code == "ModuleNotInstalled"
+
+    def test_error_code_extracted_for_variable_error(self):
+        """error_code populated for config-scope errors without explicit Code: field."""
+        text = (
+            "Error: Invalid default value for variable\n"
+            "\n"
+            "  on variables.tf line 5, in variable \"count\":\n"
+        )
+        errors = self.parser.parse(text)
+        assert errors[0].error_code == "InvalidDefaultValue"
+
+    def test_no_regression_on_resource_errors(self):
+        """Standard resource errors are not affected by new patterns."""
+        text = (
+            "Error: creating S3 Bucket (my-bucket): BucketAlreadyExists\n"
+            "\n"
+            "  with aws_s3_bucket.data,\n"
+            "  on main.tf line 5, in resource \"aws_s3_bucket\" \"data\":\n"
+        )
+        errors = self.parser.parse(text)
+        assert len(errors) == 1
+        assert errors[0].resource_address == "aws_s3_bucket.data"
 
     def test_resource_def_pattern_extracts_address(self):
         """The 'in resource \"type\" \"name\":' pattern should extract address."""

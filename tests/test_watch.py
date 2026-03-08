@@ -2,7 +2,7 @@
 
 import importlib
 import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 
 from click.testing import CliRunner
 
@@ -72,6 +72,14 @@ def _make_fix(**kwargs):
     return Fix(**defaults)
 
 
+def _patch_store_no_pending(mock_store_cls):
+    """Configure a MockStore to return no pending entries on success path."""
+    instance = mock_store_cls.return_value
+    instance.find_latest_session.return_value = []
+    instance.find_by_cwd.return_value = []
+    return instance
+
+
 # ===================================================================
 # TestWatchCommandSuccess
 # ===================================================================
@@ -81,18 +89,20 @@ class TestWatchCommandSuccess:
     """Tests for when the watched command succeeds."""
 
     def test_successful_command_no_fixdoc_output(self, tmp_path):
-        """A successful command produces no extra fixdoc output."""
+        """A successful command produces no extra fixdoc output when no pending."""
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp:
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
             mp.return_value = mock_popen_success([b"hello world\n", b""])
+            _patch_store_no_pending(MockStore)
 
             result = runner.invoke(
                 cli, ["watch", "--", "echo", "hello"], obj=make_obj(tmp_path)
             )
 
-        assert "Capture this error?" not in result.output
+        assert "deferred error" not in result.output
         assert result.exit_code == 0
 
     def test_exit_code_zero_preserved(self, tmp_path):
@@ -100,14 +110,84 @@ class TestWatchCommandSuccess:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp:
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
             mp.return_value = mock_popen_success()
+            _patch_store_no_pending(MockStore)
 
             result = runner.invoke(
                 cli, ["watch", "--", "true"], obj=make_obj(tmp_path)
             )
 
         assert result.exit_code == 0
+
+    def test_success_with_matching_pending_calls_resolve(self, tmp_path):
+        """On success, if context-matching pending entries exist, resolve flow is triggered."""
+        from fixdoc.pending import PendingEntry
+        runner = CliRunner()
+        cli = create_cli()
+        entry = PendingEntry(
+            error_id="abc123",
+            error_type="terraform",
+            short_message="err",
+            error_excerpt="text",
+            tags="",
+            cwd="/some/dir",
+            command="terraform apply",
+        )
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "PendingStore") as MockStore, \
+             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+            mp.return_value = mock_popen_success()
+            instance = MockStore.return_value
+            instance.find_latest_session.return_value = [entry]
+            instance.find_by_cwd.return_value = []
+            mock_resolve.return_value = None
+
+            result = runner.invoke(
+                cli, ["watch", "--", "terraform", "apply"], obj=make_obj(tmp_path),
+                input="q\n",
+            )
+
+        mock_resolve.assert_called_once()
+
+    def test_no_prompt_skips_success_resolve(self, tmp_path):
+        """--no-prompt on success skips the resolve flow."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "PendingStore") as MockStore, \
+             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+            mp.return_value = mock_popen_success()
+            instance = MockStore.return_value
+            instance.find_latest_session.return_value = []
+
+            result = runner.invoke(
+                cli, ["watch", "--no-prompt", "--", "terraform", "apply"],
+                obj=make_obj(tmp_path),
+            )
+
+        mock_resolve.assert_not_called()
+
+    def test_success_no_matching_pending_no_resolve(self, tmp_path):
+        """On success with no matching pending, resolve flow is not triggered."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "PendingStore") as MockStore, \
+             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+            mp.return_value = mock_popen_success()
+            instance = MockStore.return_value
+            instance.find_latest_session.return_value = []
+
+            result = runner.invoke(
+                cli, ["watch", "--", "terraform", "apply"], obj=make_obj(tmp_path),
+            )
+
+        mock_resolve.assert_not_called()
 
 
 # ===================================================================
@@ -116,92 +196,10 @@ class TestWatchCommandSuccess:
 
 
 class TestWatchCommandFailure:
-    """Tests for when the watched command fails with a single structured error."""
+    """Tests for when the watched command fails: defer-first behavior."""
 
-    def test_single_error_shows_action_menu(self, tmp_path):
-        """A failed command with one structured error shows action menu."""
-        runner = CliRunner()
-        cli = create_cli()
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse:
-            mp.return_value = mock_popen_failure()
-            mock_parse.return_value = [_make_parsed_error()]
-
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="s\n",
-            )
-
-        assert "Command failed (exit code 1)" in result.output
-        assert "Capture this error" in result.output
-        assert "Defer" in result.output
-
-    def test_skip_no_fix_created(self, tmp_path):
-        """Choosing skip creates no fix."""
-        runner = CliRunner()
-        cli = create_cli()
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse:
-            mp.return_value = mock_popen_failure()
-            mock_parse.return_value = [_make_parsed_error()]
-
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="s\n",
-            )
-
-        assert "Fix saved" not in result.output
-        assert "Saved to pending" not in result.output
-
-    def test_exit_code_preserved_on_skip(self, tmp_path):
-        """Non-zero exit code is preserved when skipping."""
-        runner = CliRunner()
-        cli = create_cli()
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse:
-            mp.return_value = mock_popen_failure(exit_code=42)
-            mock_parse.return_value = [_make_parsed_error()]
-
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="s\n",
-            )
-
-        assert result.exit_code == 42
-
-    def test_capture_creates_fix(self, tmp_path):
-        """Pressing Enter (capture) creates a fix."""
-        runner = CliRunner()
-        cli = create_cli()
-        mock_fix = _make_fix()
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
-            mp.return_value = mock_popen_failure()
-            mock_parse.return_value = [_make_parsed_error()]
-
-            # Enter = capture
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="\n",
-            )
-
-        assert "Fix saved" in result.output
-
-    def test_defer_single_error_saves_to_pending(self, tmp_path):
-        """Choosing 'd' defers the single error to pending."""
+    def test_single_error_auto_defers_shows_summary(self, tmp_path):
+        """A failed command with one structured error auto-defers and shows summary card."""
         runner = CliRunner()
         cli = create_cli()
 
@@ -216,11 +214,100 @@ class TestWatchCommandFailure:
                 cli,
                 ["watch", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
-                input="d\n",
+                input="s\n",
             )
 
-        assert "Saved to pending" in result.output
+        assert "Deferred to pending" in result.output
+        assert "I'll ask what fixed these" in result.output
         store_instance.save.assert_called_once()
+
+    def test_single_error_auto_defers_stores_entry(self, tmp_path):
+        """Auto-defer saves a PendingEntry for the structured error."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure()
+            mock_parse.return_value = [_make_parsed_error()]
+            store_instance = MockStore.return_value
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
+            )
+
+        store_instance.save.assert_called_once()
+
+    def test_skip_choice_no_fix_created(self, tmp_path):
+        """Choosing 's' (skip) creates no fix."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure()
+            mock_parse.return_value = [_make_parsed_error()]
+            MockStore.return_value = MagicMock()
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
+            )
+
+        assert "Fix saved" not in result.output
+
+    def test_exit_code_preserved_on_skip(self, tmp_path):
+        """Non-zero exit code is preserved when skipping."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure(exit_code=42)
+            mock_parse.return_value = [_make_parsed_error()]
+            MockStore.return_value = MagicMock()
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
+            )
+
+        assert result.exit_code == 42
+
+    def test_capture_one_now_creates_fix(self, tmp_path):
+        """Pressing [c] then selecting an index captures that error immediately."""
+        runner = CliRunner()
+        cli = create_cli()
+        mock_fix = _make_fix()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
+             patch.object(_watch_mod, "PendingStore") as MockStore, \
+             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
+            mp.return_value = mock_popen_failure()
+            mock_parse.return_value = [_make_parsed_error()]
+            store_instance = MockStore.return_value
+
+            # [c] to capture one now, then 1 to pick error #1
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="c\n1\n",
+            )
+
+        assert "Fix saved" in result.output
+        store_instance.remove.assert_called_once()
 
     def test_empty_output_no_capture_prompt(self, tmp_path):
         """If command fails but produces no output, no capture prompt."""
@@ -236,7 +323,7 @@ class TestWatchCommandFailure:
                 obj=make_obj(tmp_path),
             )
 
-        assert "Capture this error?" not in result.output
+        assert "Deferred to pending" not in result.output
         assert result.exit_code == 1
 
 
@@ -248,25 +335,51 @@ class TestWatchCommandFailure:
 class TestWatchCommandFailureGeneric:
     """Tests for when the watched command fails with unrecognized output."""
 
-    def test_generic_error_capture_via_piped_input(self, tmp_path):
-        """When detect_and_parse returns [], Enter captures via handle_piped_input."""
+    def test_generic_error_auto_defers_one_entry(self, tmp_path):
+        """When detect_and_parse returns [], one generic PendingEntry is auto-deferred."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure(
+                stdout_lines=[b"some generic error text\n", b""],
+            )
+            store_instance = MockStore.return_value
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
+            )
+
+        store_instance.save.assert_called_once()
+        saved_entry = store_instance.save.call_args[0][0]
+        assert saved_entry.error_type == "generic"
+        assert "Deferred to pending" in result.output
+
+    def test_generic_capture_via_c_choice(self, tmp_path):
+        """Choosing [c] on generic error captures via handle_piped_input."""
         runner = CliRunner()
         cli = create_cli()
         mock_fix = _make_fix()
 
         with patch.object(_watch_mod.subprocess, "Popen") as mp, \
              patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
+             patch.object(_watch_mod, "PendingStore") as MockStore, \
              patch.object(_watch_mod, "handle_piped_input", return_value=mock_fix):
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"some generic error text\n", b""],
             )
+            MockStore.return_value = MagicMock()
 
-            # Enter = capture
             result = runner.invoke(
                 cli,
                 ["watch", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
-                input="\n",
+                input="c\n1\n",
             )
 
         assert "Fix saved" in result.output
@@ -277,10 +390,12 @@ class TestWatchCommandFailureGeneric:
         cli = create_cli()
 
         with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[]):
+             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"some error\n", b""],
             )
+            MockStore.return_value = MagicMock()
 
             result = runner.invoke(
                 cli,
@@ -291,29 +406,6 @@ class TestWatchCommandFailureGeneric:
 
         assert "Fix saved" not in result.output
 
-    def test_generic_defer_saves_to_pending(self, tmp_path):
-        """Choosing 'd' on generic error saves to pending."""
-        runner = CliRunner()
-        cli = create_cli()
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
-            mp.return_value = mock_popen_failure(
-                stdout_lines=[b"some error\n", b""],
-            )
-            store_instance = MockStore.return_value
-
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="d\n",
-            )
-
-        assert "Saved to pending" in result.output
-        store_instance.save.assert_called_once()
-
 
 # ===================================================================
 # TestWatchCommandOptions
@@ -323,17 +415,17 @@ class TestWatchCommandFailureGeneric:
 class TestWatchCommandOptions:
     """Tests for --no-prompt and --tags options."""
 
-    def test_no_prompt_auto_captures_structured_error(self, tmp_path):
-        """--no-prompt auto-captures structured errors without prompting."""
+    def test_no_prompt_auto_defers_structured_error(self, tmp_path):
+        """--no-prompt auto-defers structured errors without interactive prompt."""
         runner = CliRunner()
         cli = create_cli()
-        mock_fix = _make_fix()
 
         with patch.object(_watch_mod.subprocess, "Popen") as mp, \
              patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
+             patch.object(_watch_mod, "PendingStore") as MockStore:
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
+            store_instance = MockStore.return_value
 
             result = runner.invoke(
                 cli,
@@ -341,21 +433,64 @@ class TestWatchCommandOptions:
                 obj=make_obj(tmp_path),
             )
 
-        assert "Capture this error?" not in result.output
-        assert "Fix saved" in result.output
+        assert "deferred to pending" in result.output.lower()
+        assert "Fix saved" not in result.output
+        store_instance.save.assert_called_once()
 
-    def test_no_prompt_generic_error_passes_tags(self, tmp_path):
-        """--no-prompt with generic errors passes tags to handle_piped_input."""
+    def test_no_prompt_prints_one_liner_on_failure(self, tmp_path):
+        """--no-prompt prints a brief 1-line summary on failure."""
+        runner = CliRunner()
+        cli = create_cli()
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure()
+            mock_parse.return_value = [_make_parsed_error()]
+            MockStore.return_value = MagicMock()
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--no-prompt", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+            )
+
+        assert "Apply failed" in result.output
+        assert "1 error(s) deferred" in result.output
+
+    def test_no_prompt_multi_error_defers_all(self, tmp_path):
+        """--no-prompt with multiple errors defers all to pending."""
+        runner = CliRunner()
+        cli = create_cli()
+        errors = [_make_parsed_error(resource_address=f"res_{i}", error_code=f"E{i}") for i in range(3)]
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure()
+            mock_parse.return_value = errors
+            store_instance = MockStore.return_value
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--no-prompt", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+            )
+
+        assert store_instance.save.call_count == 3
+
+    def test_tags_stored_in_deferred_entry(self, tmp_path):
+        """--tags are stored in the PendingEntry when auto-deferring."""
         runner = CliRunner()
         cli = create_cli()
 
         with patch.object(_watch_mod.subprocess, "Popen") as mp, \
              patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
-             patch.object(_watch_mod, "handle_piped_input") as mock_handler:
+             patch.object(_watch_mod, "PendingStore") as MockStore:
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"generic error\n", b""],
             )
-            mock_handler.return_value = None
+            store_instance = MockStore.return_value
 
             result = runner.invoke(
                 cli,
@@ -363,32 +498,9 @@ class TestWatchCommandOptions:
                 obj=make_obj(tmp_path),
             )
 
-            mock_handler.assert_called_once()
-            _, kwargs = mock_handler.call_args
-            assert kwargs.get("tags") == "aws,terraform"
-
-    def test_tags_passed_to_structured_capture(self, tmp_path):
-        """--tags are passed through to structured error capture."""
-        runner = CliRunner()
-        cli = create_cli()
-        mock_fix = _make_fix()
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix) as mock_cap:
-            mp.return_value = mock_popen_failure()
-            mock_parse.return_value = [_make_parsed_error()]
-
-            result = runner.invoke(
-                cli,
-                ["watch", "--tags", "infra,prod", "--no-prompt", "--", "cmd"],
-                obj=make_obj(tmp_path),
-            )
-
-            mock_cap.assert_called_once()
-            args, kwargs = mock_cap.call_args
-            # tags is the 3rd positional arg (err, raw_output, tags, repo, config)
-            assert args[2] == "infra,prod"
+        store_instance.save.assert_called_once()
+        saved_entry = store_instance.save.call_args[0][0]
+        assert "aws,terraform" in saved_entry.tags or saved_entry.tags == "aws,terraform"
 
 
 # ===================================================================
@@ -440,66 +552,21 @@ class TestWatchNoCommand:
 
 
 # ===================================================================
-# TestWatchMultiErrorFlow
+# TestWatchDeferFirstBehavior — multi-error scenarios
 # ===================================================================
 
 
-class TestWatchMultiErrorFlow:
-    """Tests for the multi-error interactive flow."""
+class TestWatchDeferFirstBehavior:
+    """Tests confirming all errors are auto-deferred on failure."""
 
-    def _setup_multi_error(self, tmp_path, num_errors=3):
-        """Return (runner, cli, mock_popen, errors)."""
+    def test_multiple_errors_all_auto_deferred(self, tmp_path):
+        """Multiple structured errors are all auto-deferred without prompting."""
+        runner = CliRunner()
+        cli = create_cli()
         errors = [
-            _make_parsed_error(
-                resource_address=f"aws_resource_{i}.name",
-                error_code=f"Error{i}",
-            )
-            for i in range(num_errors)
+            _make_parsed_error(resource_address=f"aws_resource_{i}.name", error_code=f"Error{i}")
+            for i in range(3)
         ]
-        return CliRunner(), create_cli(), errors
-
-    def test_multi_error_shows_summary_table(self, tmp_path):
-        """Multiple errors display a summary table."""
-        runner, cli, errors = self._setup_multi_error(tmp_path)
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors):
-            mp.return_value = mock_popen_failure()
-
-            # Choose "2" to skip capture
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="2\n",
-            )
-
-        assert "Found 3 error(s)" in result.output
-        assert "aws_resource_0.name" in result.output
-        assert "aws_resource_1.name" in result.output
-        assert "aws_resource_2.name" in result.output
-
-    def test_multi_error_skip_creates_no_fixes(self, tmp_path):
-        """Choosing 'skip' creates no fixes."""
-        runner, cli, errors = self._setup_multi_error(tmp_path)
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors):
-            mp.return_value = mock_popen_failure()
-
-            # "2" = skip
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="2\n",
-            )
-
-        assert "Fix saved" not in result.output
-
-    def test_multi_error_defer_all(self, tmp_path):
-        """Choosing 'defer all' saves all errors to pending."""
-        runner, cli, errors = self._setup_multi_error(tmp_path)
 
         with patch.object(_watch_mod.subprocess, "Popen") as mp, \
              patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
@@ -507,253 +574,116 @@ class TestWatchMultiErrorFlow:
             mp.return_value = mock_popen_failure()
             store_instance = MockStore.return_value
 
-            # "3" = save all to pending
             result = runner.invoke(
                 cli,
                 ["watch", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
-                input="3\n",
+                input="s\n",
             )
 
-        assert "Saved 3 error(s) to pending" in result.output
         assert store_instance.save.call_count == 3
+        assert "3 error(s)" in result.output
 
-    def test_multi_error_capture_all_iterates(self, tmp_path):
-        """Default (Enter) iterates through all errors."""
-        runner, cli, errors = self._setup_multi_error(tmp_path, num_errors=2)
-        mock_fix = _make_fix()
+    def test_failure_summary_shows_resource_names(self, tmp_path):
+        """Defer summary card lists resources."""
+        runner = CliRunner()
+        cli = create_cli()
+        errors = [_make_parsed_error(resource_address="aws_iam_role.app")]
 
         with patch.object(_watch_mod.subprocess, "Popen") as mp, \
              patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "get_similar_fixes_for_error", return_value=[]), \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure()
+            MockStore.return_value = MagicMock()
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
+            )
+
+        assert "aws_iam_role.app" in result.output
+
+    def test_failure_calls_supersede_context_before_save(self, tmp_path):
+        """On failure, supersede_context is called before saving new entries."""
+        runner = CliRunner()
+        cli = create_cli()
+        errors = [_make_parsed_error()]
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
+             patch.object(_watch_mod, "PendingStore") as MockStore:
+            mp.return_value = mock_popen_failure()
+            store_instance = MockStore.return_value
+
+            result = runner.invoke(
+                cli,
+                ["watch", "--", "terraform", "apply"],
+                obj=make_obj(tmp_path),
+                input="s\n",
+            )
+
+        store_instance.supersede_context.assert_called_once()
+        # supersede_context must be called before any save
+        supersede_call_idx = store_instance.method_calls.index(
+            next(c for c in store_instance.method_calls if c[0] == "supersede_context")
+        )
+        save_call_idx = store_instance.method_calls.index(
+            next(c for c in store_instance.method_calls if c[0] == "save")
+        )
+        assert supersede_call_idx < save_call_idx
+
+    def test_capture_one_removes_entry_from_store(self, tmp_path):
+        """After capturing with [c], the entry is removed from the store."""
+        runner = CliRunner()
+        cli = create_cli()
+        mock_fix = _make_fix()
+        errors = [_make_parsed_error()]
+
+        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
+             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
+             patch.object(_watch_mod, "PendingStore") as MockStore, \
              patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
             mp.return_value = mock_popen_failure()
-
-            # Enter (capture all), then for each error:
-            # Enter (capture new fix)
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="\n\n\n",
-            )
-
-        assert "Error 1/2" in result.output
-        assert "Error 2/2" in result.output
-
-    def test_multi_error_skip_per_error(self, tmp_path):
-        """Pressing 's' skips an individual error."""
-        runner, cli, errors = self._setup_multi_error(tmp_path, num_errors=2)
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "get_similar_fixes_for_error", return_value=[]), \
-             patch.object(_watch_mod, "capture_single_error") as mock_cap:
-            mp.return_value = mock_popen_failure()
-            mock_cap.return_value = None
-
-            # Enter (capture all), then "s" (skip first), "s" (skip second)
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="\ns\ns\n",
-            )
-
-        # capture_single_error should not have been called (both skipped)
-        mock_cap.assert_not_called()
-
-    def test_multi_error_defer_per_error(self, tmp_path):
-        """Pressing 'd' defers an individual error."""
-        runner, cli, errors = self._setup_multi_error(tmp_path, num_errors=1)
-
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors * 2), \
-             patch.object(_watch_mod, "get_similar_fixes_for_error", return_value=[]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
-            mp.return_value = mock_popen_failure()
             store_instance = MockStore.return_value
 
-            # Enter (capture all), then "d" (defer first), "d" (defer second)
             result = runner.invoke(
                 cli,
                 ["watch", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
-                input="\nd\nd\n",
+                input="c\n1\n",
             )
 
-        assert store_instance.save.call_count == 2
-        assert "Saved to pending" in result.output
+        store_instance.remove.assert_called_once()
 
-    def test_no_prompt_multi_error_auto_captures_all(self, tmp_path):
-        """--no-prompt with multiple errors auto-captures all without prompting."""
-        runner, cli, errors = self._setup_multi_error(tmp_path, num_errors=2)
+
+# ===================================================================
+# TestCaptureErrorForWatch — unit tests
+# ===================================================================
+
+
+class TestCaptureErrorForWatch:
+    """Unit tests for _capture_error_for_watch routing."""
+
+    def test_terraform_routes_to_capture_single_error(self):
+        err = _make_parsed_error(error_type="terraform")
         mock_fix = _make_fix()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix) as mock_cap:
-            mp.return_value = mock_popen_failure()
+        with patch.object(_watch_mod, "capture_single_error", return_value=mock_fix) as mock_cap, \
+             patch.object(_watch_mod, "capture_single_k8s_error") as mock_k8s:
+            result = _watch_mod._capture_error_for_watch(err, "tag", MagicMock(), MagicMock())
 
-            result = runner.invoke(
-                cli,
-                ["watch", "--no-prompt", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-            )
+        mock_cap.assert_called_once()
+        mock_k8s.assert_not_called()
+        assert result == mock_fix
 
-        assert mock_cap.call_count == 2
-        assert result.output.count("Fix saved") == 2
+    def test_kubernetes_routes_to_k8s_capture(self):
+        err = _make_parsed_error(error_type="kubectl")
 
-    def test_multi_error_select_single(self, tmp_path):
-        """Choosing '1' then a number captures only that error."""
-        runner, cli, errors = self._setup_multi_error(tmp_path, num_errors=3)
-        mock_fix = _make_fix()
+        with patch.object(_watch_mod, "capture_single_error") as mock_tf, \
+             patch.object(_watch_mod, "capture_single_k8s_error", return_value=None) as mock_k8s:
+            result = _watch_mod._capture_error_for_watch(err, None, MagicMock(), MagicMock())
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "get_similar_fixes_for_error", return_value=[]), \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix) as mock_cap:
-            mp.return_value = mock_popen_failure()
-
-            # "1" = select single, "2" = error number 2, Enter = capture
-            result = runner.invoke(
-                cli,
-                ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path),
-                input="1\n2\n\n",
-            )
-
-        # Only one error should be captured
-        assert mock_cap.call_count == 1
-        # The error card should show 1/1 (since we narrowed to one)
-        assert "Error 1/1" in result.output
-
-
-# ===================================================================
-# TestDisplaySummaryTable
-# ===================================================================
-
-
-class TestDisplaySummaryTable:
-    """Unit tests for _display_summary_table."""
-
-    def test_summary_table_truncates_long_resource(self):
-        """Long resource addresses are truncated."""
-        err = _make_parsed_error(
-            resource_address="module.very.long.module.path.aws_resource_type.name_here"
-        )
-        runner = CliRunner()
-        with runner.isolated_filesystem():
-            from click.testing import CliRunner as CR
-            # Just call the function and check output
-            result = runner.invoke(
-                _make_echo_command([err]),
-            )
-            # The function is internal, test via multi-error flow instead
-            pass
-
-    def test_summary_table_shows_error_type_when_no_code(self):
-        """When error_code is None, shows error_type instead."""
-        err = _make_parsed_error(error_code=None)
-        # error_type is "terraform", should show in Code/Type column
-        assert err.error_type == "terraform"
-
-
-# ===================================================================
-# TestPromptFunctions
-# ===================================================================
-
-
-class TestPromptMultiErrorAction:
-    """Unit tests for _prompt_multi_error_action."""
-
-    def test_empty_input_returns_all(self):
-        runner = CliRunner()
-        with patch("click.prompt", return_value=""):
-            result = _watch_mod._prompt_multi_error_action()
-        assert result == "all"
-
-    def test_choice_1_returns_single(self):
-        with patch("click.prompt", return_value="1"):
-            result = _watch_mod._prompt_multi_error_action()
-        assert result == "single"
-
-    def test_choice_2_returns_skip(self):
-        with patch("click.prompt", return_value="2"):
-            result = _watch_mod._prompt_multi_error_action()
-        assert result == "skip"
-
-    def test_choice_3_returns_defer_all(self):
-        with patch("click.prompt", return_value="3"):
-            result = _watch_mod._prompt_multi_error_action()
-        assert result == "defer_all"
-
-    def test_invalid_choice_returns_all(self):
-        with patch("click.prompt", return_value="xyz"):
-            result = _watch_mod._prompt_multi_error_action()
-        assert result == "all"
-
-
-class TestPromptSingleErrorAction:
-    """Unit tests for _prompt_single_error_action."""
-
-    def test_empty_returns_capture(self):
-        with patch("click.prompt", return_value=""):
-            result = _watch_mod._prompt_single_error_action(exit_code=1)
-        assert result == "capture"
-
-    def test_d_returns_defer(self):
-        with patch("click.prompt", return_value="d"):
-            result = _watch_mod._prompt_single_error_action(exit_code=1)
-        assert result == "defer"
-
-    def test_s_returns_skip(self):
-        with patch("click.prompt", return_value="s"):
-            result = _watch_mod._prompt_single_error_action(exit_code=1)
-        assert result == "skip"
-
-    def test_invalid_returns_capture(self):
-        with patch("click.prompt", return_value="xyz"):
-            result = _watch_mod._prompt_single_error_action(exit_code=1)
-        assert result == "capture"
-
-
-class TestPromptPerErrorAction:
-    """Unit tests for _prompt_per_error_action."""
-
-    def test_empty_returns_capture(self):
-        with patch("click.prompt", return_value=""):
-            result = _watch_mod._prompt_per_error_action(has_matches=False)
-        assert result == "capture"
-
-    def test_s_returns_skip(self):
-        with patch("click.prompt", return_value="s"):
-            result = _watch_mod._prompt_per_error_action(has_matches=False)
-        assert result == "skip"
-
-    def test_d_returns_defer(self):
-        with patch("click.prompt", return_value="d"):
-            result = _watch_mod._prompt_per_error_action(has_matches=False)
-        assert result == "defer"
-
-    def test_m_with_matches_returns_match(self):
-        with patch("click.prompt", return_value="m"):
-            result = _watch_mod._prompt_per_error_action(has_matches=True)
-        assert result == "match"
-
-    def test_m_without_matches_returns_capture(self):
-        with patch("click.prompt", return_value="m"):
-            result = _watch_mod._prompt_per_error_action(has_matches=False)
-        assert result == "capture"
-
-
-# Helper for summary table test — not used, keeping test simple
-def _make_echo_command(errors):
-    """Create a trivial Click command that calls _display_summary_table."""
-    import click
-
-    @click.command()
-    def cmd():
-        _watch_mod._display_summary_table(errors)
-
-    return cmd
+        mock_k8s.assert_called_once()
+        mock_tf.assert_not_called()

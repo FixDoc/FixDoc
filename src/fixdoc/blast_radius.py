@@ -113,6 +113,42 @@ _CROSS_ACCOUNT_RE = re.compile(r"^arn:aws:iam::\d+:root$")
 
 
 # ---------------------------------------------------------------------------
+# Attribute categories for change fingerprinting
+# ---------------------------------------------------------------------------
+
+ATTR_CATEGORIES = {
+    "ingress": "networking", "egress": "networking", "cidr_blocks": "networking",
+    "security_groups": "networking", "from_port": "networking", "to_port": "networking",
+    "subnet_id": "networking", "vpc_id": "networking", "route_table_id": "networking",
+    "instance_type": "sizing", "instance_class": "sizing", "node_type": "sizing",
+    "policy": "iam", "assume_role_policy": "iam", "role": "iam", "policy_arn": "iam",
+    "managed_policy_arns": "iam", "inline_policy": "iam",
+    "tags": "metadata", "name": "naming", "description": "metadata",
+    "ami": "image", "image_id": "image",
+    "engine_version": "versioning", "runtime": "versioning",
+    "cidr_block": "networking", "availability_zone": "placement",
+    "kms_key_id": "encryption", "encrypted": "encryption",
+    "acl": "access", "versioning": "storage", "bucket": "naming",
+}
+
+# Attribute-aware recommended checks
+ATTR_CHECKS = {
+    ("aws_security_group", "ingress"): "Review new ingress rules for overly permissive CIDRs (0.0.0.0/0)",
+    ("aws_security_group", "egress"): "Review egress rules for least-privilege outbound access",
+    ("aws_iam_role", "assume_role_policy"): "Audit trust policy principals for wildcard or cross-account access",
+    ("aws_iam_role_policy", "policy"): "Review inline policy for least-privilege",
+    ("aws_iam_policy", "policy"): "Review managed policy document for overly broad permissions",
+    ("aws_instance", "instance_type"): "Verify instance type availability in target AZ and region",
+    ("aws_instance", "ami"): "Confirm AMI exists and is shared to this account",
+    ("aws_db_instance", "engine_version"): "Check RDS engine version compatibility and upgrade path",
+    ("aws_s3_bucket", "acl"): "Review bucket ACL — prefer bucket policies over ACLs",
+    ("aws_lambda_function", "runtime"): "Verify runtime is not deprecated",
+    ("aws_vpc", "cidr_block"): "CIDR change forces replacement — verify peering/route table dependencies",
+    ("aws_subnet", "cidr_block"): "Subnet CIDR change forces replacement — check ENI dependencies",
+}
+
+
+# ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
 
@@ -131,6 +167,7 @@ class BlastNode:
     sensitivity_delta: float = 0.0
     sensitivity_reason: str = ""
     wildcard_trust: bool = False
+    change_fingerprint: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -162,6 +199,8 @@ class BlastResult:
     plan_summary: dict = field(default_factory=dict)
     resource_warnings: list[dict] = field(default_factory=list)
     score_explanation: list[dict] = field(default_factory=list)
+    relevant_fixes: list[dict] = field(default_factory=list)
+    contextual_checks: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -953,6 +992,486 @@ def generate_checks(
 
 
 # ---------------------------------------------------------------------------
+# Change fingerprint extraction
+# ---------------------------------------------------------------------------
+
+
+def extract_change_fingerprint(change_block: dict) -> dict:
+    """Extract a structured fingerprint from a Terraform plan change block.
+
+    Diffs before vs after at the top level only. Returns changed attribute
+    names, count, semantic categories, and whether sensitive fields changed.
+    """
+    before = change_block.get("before") or {}
+    after = change_block.get("after") or {}
+    actions = change_block.get("actions", [])
+    action = _normalize_action(actions) if actions else "update"
+
+    # For creates: all after keys are "changed"; for deletes: all before keys
+    if action == "create":
+        changed_attrs = sorted(k for k in after if k != "id")
+    elif action == "delete":
+        changed_attrs = sorted(k for k in before if k != "id")
+    else:
+        changed_attrs = sorted(
+            k for k in set(list(before.keys()) + list(after.keys()))
+            if k != "id" and before.get(k) != after.get(k)
+        )
+
+    attr_categories = set()
+    for attr in changed_attrs:
+        cat = ATTR_CATEGORIES.get(attr)
+        if cat:
+            attr_categories.add(cat)
+
+    sensitive_changed = any(
+        SENSITIVE_PATTERNS.search(attr) for attr in changed_attrs
+    )
+
+    return {
+        "changed_attrs": changed_attrs,
+        "changed_attr_count": len(changed_attrs),
+        "attr_categories": attr_categories,
+        "action": action,
+        "sensitive_changed": sensitive_changed,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Unified smart matching
+# ---------------------------------------------------------------------------
+
+# Error code extraction patterns (reused from suggestions.py logic)
+_ERROR_CODE_RE = re.compile(
+    r'(?:api error |error:\s*|code[:\s]*["\']?)(\w+(?:\.\w+)*)',
+    re.IGNORECASE,
+)
+_CAMEL_CASE_RE = re.compile(r'\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b')
+
+
+def _extract_error_codes_from_text(text: str) -> set:
+    """Extract error codes from fix text (issue, error_excerpt, tags)."""
+    codes = set()
+    for m in _ERROR_CODE_RE.finditer(text):
+        codes.add(m.group(1).lower())
+    for m in _CAMEL_CASE_RE.finditer(text):
+        codes.add(m.group(1).lower())
+    return codes
+
+
+def _extract_module_path(address: str) -> Optional[str]:
+    """Extract module path prefix from a resource address.
+
+    e.g. 'module.networking.aws_vpc.main' -> 'module.networking'
+    """
+    parts = address.split(".")
+    module_parts = []
+    i = 0
+    while i < len(parts):
+        if parts[i] == "module" and i + 1 < len(parts):
+            module_parts.append(f"module.{parts[i + 1]}")
+            i += 2
+        else:
+            break
+    return ".".join(module_parts) if module_parts else None
+
+
+def _strip_index(address: str) -> str:
+    """Strip indexed suffix from address: aws_sg.bulk[0] -> aws_sg.bulk."""
+    idx = address.find("[")
+    return address[:idx] if idx >= 0 else address
+
+
+def _leaf_address(address: str) -> str:
+    """Strip module prefix to get leaf resource address.
+
+    module.web.aws_instance.app -> aws_instance.app
+    """
+    parts = address.split(".")
+    # Find the last resource_type.name pair
+    i = len(parts) - 1
+    while i >= 1:
+        if not parts[i - 1].startswith("module"):
+            return ".".join(parts[i - 1:])
+        i -= 1
+    return address
+
+
+def _fix_matches_resource_type(fix: "Fix", resource_type: str) -> bool:
+    """Check if a fix is related to a resource type via tags or text."""
+    rt_lower = resource_type.lower()
+    # Tag match
+    if fix.tags:
+        for tag in fix.tags.split(","):
+            if tag.strip().lower() == rt_lower:
+                return True
+    # Text match (word boundary)
+    pattern = re.compile(r'\b' + re.escape(rt_lower) + r'\b', re.IGNORECASE)
+    searchable = " ".join(filter(None, [fix.issue, fix.resolution, fix.error_excerpt]))
+    return bool(pattern.search(searchable))
+
+
+def find_relevant_fixes(
+    nodes: list,
+    repo: "FixRepository",
+    max_total: int = 10,
+) -> list:
+    """Find fixes relevant to the changed nodes using multi-signal scoring.
+
+    Replaces both find_resource_prior_fixes() and compute_history_prior().
+    Each fix is scored against each changed node. Highest score per fix wins.
+
+    Returns list[dict] with fix_id, score, confidence, match_reason,
+    matched_resources, plus full fix fields for display.
+    """
+    actionable = [n for n in nodes if is_actionable_change(n)]
+    if not actionable:
+        return []
+
+    all_fixes = repo.list_all()
+    if not all_fixes:
+        return []
+
+    # Pre-compute per-node data
+    node_data = []
+    for node in actionable:
+        fp = node.change_fingerprint or {}
+        changed_attrs = set(fp.get("changed_attrs", []))
+        attr_cats = fp.get("attr_categories", set())
+        module_path = _extract_module_path(node.address)
+        leaf_addr = _leaf_address(node.address)
+        stripped_addr = _strip_index(node.address)
+        node_data.append({
+            "node": node,
+            "changed_attrs": changed_attrs,
+            "attr_cats": attr_cats,
+            "module_path": module_path,
+            "leaf_addr": leaf_addr,
+            "stripped_addr": stripped_addr,
+        })
+
+    now = datetime.now(timezone.utc)
+
+    # Score each fix against each node
+    fix_scores: dict = {}  # fix.id -> best result dict
+
+    for fix in all_fixes:
+        fix_text = " ".join(filter(None, [fix.issue, fix.resolution, fix.error_excerpt])).lower()
+        fix_codes = _extract_error_codes_from_text(fix_text)
+        fix_tags = set()
+        if fix.tags:
+            fix_tags = {t.strip().lower() for t in fix.tags.split(",") if t.strip()}
+
+        # Recency bonus
+        recency_bonus = 0
+        age_days = None
+        if fix.created_at:
+            try:
+                ts = fix.created_at.replace("Z", "+00:00")
+                created = datetime.fromisoformat(ts)
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                age_days = (now - created).days
+                if age_days < 90:
+                    recency_bonus = 30
+            except (ValueError, TypeError):
+                pass
+
+        best_score = 0
+        best_reason = None
+        all_matched_resources = []
+
+        for nd in node_data:
+            node = nd["node"]
+            rt_lower = (node.resource_type or "").strip().lower()
+            score = 0
+            primary_signal = None
+            primary_detail = ""
+            node_supporting = []
+
+            has_rt_match = _fix_matches_resource_type(fix, rt_lower) if rt_lower else False
+
+            # Error code match (150) — requires resource type context
+            if fix_codes and has_rt_match:
+                for code in fix_codes:
+                    if len(code) > 3 and code not in ("error", "failed", "true", "false"):
+                        if score < 150:
+                            score = 150
+                            primary_signal = "error_code"
+                            primary_detail = code
+
+            # Address match (120)
+            if not primary_signal or score < 120:
+                stripped = nd["stripped_addr"].lower()
+                leaf = nd["leaf_addr"].lower()
+                if stripped in fix_text or leaf in fix_text:
+                    if score < 120:
+                        if primary_signal:
+                            node_supporting.append({"signal": primary_signal, "detail": primary_detail})
+                        score = 120
+                        primary_signal = "address"
+                        primary_detail = node.address
+                    else:
+                        node_supporting.append({"signal": "address", "detail": node.address})
+
+            # Attribute match (100) — requires resource type context
+            if has_rt_match and nd["changed_attrs"]:
+                for attr in nd["changed_attrs"]:
+                    attr_pattern = re.compile(r'\b' + re.escape(attr) + r'\b', re.IGNORECASE)
+                    if attr_pattern.search(fix_text):
+                        if score < 100:
+                            if primary_signal:
+                                node_supporting.append({"signal": primary_signal, "detail": primary_detail})
+                            score = 100
+                            primary_signal = "attribute"
+                            primary_detail = attr
+                        else:
+                            node_supporting.append({"signal": "attribute", "detail": attr})
+                        break
+
+            # Attr category match (80) — requires resource type context
+            if has_rt_match and nd["attr_cats"]:
+                for cat in nd["attr_cats"]:
+                    if cat in fix_tags:
+                        if score < 80:
+                            if primary_signal:
+                                node_supporting.append({"signal": primary_signal, "detail": primary_detail})
+                            score = 80
+                            primary_signal = "category"
+                            primary_detail = cat
+                        else:
+                            node_supporting.append({"signal": "category", "detail": cat})
+                        break
+
+            # Resource type + action (60)
+            if has_rt_match and rt_lower in fix_tags:
+                action_words = {"delete", "replace", "update", "create"}
+                fix_has_action = any(w in fix_text for w in action_words if w == node.action)
+                if fix_has_action:
+                    if score < 60:
+                        if primary_signal:
+                            node_supporting.append({"signal": primary_signal, "detail": primary_detail})
+                        score = 60
+                        primary_signal = "type_action"
+                        primary_detail = f"{rt_lower} + {node.action}"
+                    else:
+                        node_supporting.append({"signal": "type_action", "detail": node.action})
+
+            # Resource type tag only (40)
+            if rt_lower and rt_lower in fix_tags and score < 40:
+                if primary_signal:
+                    node_supporting.append({"signal": primary_signal, "detail": primary_detail})
+                score = 40
+                primary_signal = "resource_type_tag"
+                primary_detail = rt_lower
+
+            # Resource type text only (20)
+            if rt_lower and score < 20:
+                rt_pattern = re.compile(r'\b' + re.escape(rt_lower) + r'\b', re.IGNORECASE)
+                if rt_pattern.search(fix_text):
+                    if primary_signal:
+                        node_supporting.append({"signal": primary_signal, "detail": primary_detail})
+                    score = 20
+                    primary_signal = "resource_type_text"
+                    primary_detail = rt_lower
+
+            if score == 0:
+                continue
+
+            # Module path bonus
+            module_bonus = 0
+            if nd["module_path"] and nd["module_path"].lower() in fix_text:
+                module_bonus = 20
+                node_supporting.append({"signal": "module_path", "detail": nd["module_path"]})
+
+            # Recency bonus
+            if recency_bonus and age_days is not None:
+                node_supporting.append({"signal": "recency", "detail": f"{age_days} days ago"})
+
+            total = score + module_bonus + recency_bonus
+
+            # Track this node as a matched resource
+            all_matched_resources.append({"address": node.address, "action": node.action})
+
+            if total > best_score:
+                best_score = total
+                best_reason = {
+                    "signal": primary_signal,
+                    "detail": primary_detail,
+                    "resource_type": rt_lower,
+                    "supporting_signals": node_supporting,
+                }
+
+        if best_score == 0:
+            continue
+
+        # Deduplicate matched_resources by address
+        seen_addrs = set()
+        deduped_resources = []
+        for mr in all_matched_resources:
+            if mr["address"] not in seen_addrs:
+                seen_addrs.add(mr["address"])
+                deduped_resources.append(mr)
+
+        # Confidence bands
+        if best_score >= 120:
+            confidence = "high"
+        elif best_score >= 60:
+            confidence = "medium"
+        else:
+            confidence = "low"
+
+        best_reason["confidence"] = confidence
+
+        entry = {
+            "fix_id": fix.id,
+            "id": fix.id,
+            "short_id": fix.id[:8],
+            "issue": fix.issue,
+            "resolution": fix.resolution,
+            "tags": fix.tags or "",
+            "created_at": fix.created_at or "",
+            "error_excerpt": fix.error_excerpt or "",
+            "score": best_score,
+            "confidence": confidence,
+            "match_reason": best_reason,
+            "matched_resources": deduped_resources,
+        }
+
+        if fix.id not in fix_scores or best_score > fix_scores[fix.id]["score"]:
+            fix_scores[fix.id] = entry
+        elif fix.id in fix_scores:
+            # Merge matched_resources
+            existing = fix_scores[fix.id]
+            existing_addrs = {r["address"] for r in existing["matched_resources"]}
+            for mr in deduped_resources:
+                if mr["address"] not in existing_addrs:
+                    existing["matched_resources"].append(mr)
+
+    if not fix_scores:
+        return []
+
+    # Sort by score desc, then created_at desc
+    sorted_fixes = sorted(
+        fix_scores.values(),
+        key=lambda w: (-w["score"], w.get("created_at", "") or ""),
+        reverse=False,
+    )
+    # Re-sort: score desc (already done), then created_at desc for ties
+    sorted_fixes.sort(key=lambda w: (-w["score"], -(len(w.get("created_at", "")))))
+
+    for entry in sorted_fixes:
+        entry["matched_resources"].sort(key=lambda r: r["address"])
+
+    return sorted_fixes[:max_total]
+
+
+# ---------------------------------------------------------------------------
+# Contextual checks generator
+# ---------------------------------------------------------------------------
+
+
+def generate_contextual_checks(
+    nodes: list,
+    relevant_fixes: list,
+) -> list:
+    """Generate context-aware recommended checks.
+
+    1. Attribute-specific checks from ATTR_CHECKS
+    2. History-derived checks from high-confidence relevant fixes
+    3. Category fallbacks from CATEGORY_CHECKS
+    4. Delete checks for any deletes
+
+    Returns list[dict] with check, source, resource.
+    """
+    checks = []
+    seen_texts = set()
+    has_attr_check_categories = set()
+
+    # 1. Attribute-specific checks
+    for node in nodes:
+        if not is_actionable_change(node):
+            continue
+        fp = node.change_fingerprint or {}
+        rt = (node.resource_type or "").strip().lower()
+        for attr in fp.get("changed_attrs", []):
+            key = (rt, attr)
+            check_text = ATTR_CHECKS.get(key)
+            if check_text and check_text not in seen_texts:
+                seen_texts.add(check_text)
+                checks.append({
+                    "check": check_text,
+                    "source": "attribute",
+                    "resource": node.address,
+                })
+                # Track categories covered by attr checks
+                cat = ATTR_CATEGORIES.get(attr)
+                if cat:
+                    has_attr_check_categories.add(cat)
+
+    # 2. History-derived checks — only from high-confidence fixes
+    history_check_count = 0
+    for rf in relevant_fixes:
+        if history_check_count >= 2:
+            break
+        confidence = rf.get("confidence", "low")
+        if confidence != "high":
+            continue
+        resolution = rf.get("resolution", "")
+        if not resolution or len(resolution) < 20:
+            continue
+        if resolution.strip().lower() in ("fixed it", "fixed", "resolved"):
+            continue
+        check_text = f"Prior fix: {resolution[:80]}"
+        if check_text not in seen_texts:
+            seen_texts.add(check_text)
+            resource = ""
+            matched = rf.get("matched_resources", [])
+            if matched:
+                resource = matched[0]["address"]
+            checks.append({
+                "check": check_text,
+                "source": "history",
+                "resource": resource,
+            })
+            history_check_count += 1
+
+    # 3. Category fallbacks — only when no attribute-specific checks for that category
+    seen_categories = set()
+    for node in nodes:
+        if not is_actionable_change(node):
+            continue
+        cp = classify_control_point(node.resource_type)
+        if cp and cp[0] not in seen_categories:
+            seen_categories.add(cp[0])
+            if cp[0] not in has_attr_check_categories:
+                for check_text in CATEGORY_CHECKS.get(cp[0], []):
+                    if check_text not in seen_texts:
+                        seen_texts.add(check_text)
+                        checks.append({
+                            "check": check_text,
+                            "source": "category",
+                            "resource": node.address,
+                        })
+
+    # 4. Delete checks
+    has_deletes = any(
+        n.action in ("delete", "replace") for n in nodes if is_actionable_change(n)
+    )
+    if has_deletes:
+        for check_text in DELETE_CHECKS:
+            if check_text not in seen_texts:
+                seen_texts.add(check_text)
+                checks.append({
+                    "check": check_text,
+                    "source": "category",
+                    "resource": "",
+                })
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Main analysis orchestrator
 # ---------------------------------------------------------------------------
 
@@ -964,6 +1483,7 @@ def analyze_blast_radius(
     max_depth: int = 5,
     tag_only: bool = False,
     max_resource_warnings: int = 10,
+    change_blocks: Optional[dict] = None,
 ) -> BlastResult:
     """Run a full blast radius analysis on a Terraform plan.
 
@@ -974,6 +1494,7 @@ def analyze_blast_radius(
         max_depth: Max BFS traversal depth.
         tag_only: Only surface tribal warnings from tag-matched fixes.
         max_resource_warnings: Max number of tribal knowledge warnings.
+        change_blocks: Optional mapping of address -> raw change block for fingerprinting.
 
     Returns:
         BlastResult with score, severity, affected resources, etc.
@@ -982,6 +1503,15 @@ def analyze_blast_radius(
 
     analyzer = TerraformAnalyzer(repo=repo)
     resources = analyzer.extract_resources(plan)
+
+    # Build change_blocks from plan if not provided
+    if change_blocks is None:
+        change_blocks = {}
+        for rc in plan.get("resource_changes", []):
+            addr = rc.get("address", "")
+            cb = rc.get("change", {})
+            if addr and cb:
+                change_blocks[addr] = cb
 
     # Build nodes and identify control points — changed only
     nodes: list[BlastNode] = []
@@ -994,8 +1524,6 @@ def analyze_blast_radius(
             continue
 
         # Detect replace: ["create", "delete"]
-        # The action is already normalized by TerraformAnalyzer, but
-        # we check the raw plan for the create+delete combo
         raw_actions = []
         for rc in plan.get("resource_changes", []):
             if rc.get("address") == res.address:
@@ -1009,6 +1537,12 @@ def analyze_blast_radius(
         category = cp_info[0] if cp_info else ""
         criticality = cp_info[1] if cp_info else 0.0
 
+        # Extract change fingerprint
+        fingerprint = {}
+        cb = change_blocks.get(res.address)
+        if cb:
+            fingerprint = extract_change_fingerprint(cb)
+
         node = BlastNode(
             address=res.address,
             resource_type=res.resource_type,
@@ -1017,15 +1551,16 @@ def analyze_blast_radius(
             is_control_point=is_cp,
             criticality=criticality,
             category=category,
+            change_fingerprint=fingerprint,
         )
         nodes.append(node)
 
         if is_cp:
             control_points.append(node)
             if node.action == "update" and node.category in ("iam", "rbac"):
-                cb = _find_change_block(plan, node.address)
-                if cb:
-                    delta, reason, wildcard = _compute_iam_sensitivity(cb)
+                iam_cb = _find_change_block(plan, node.address)
+                if iam_cb:
+                    delta, reason, wildcard = _compute_iam_sensitivity(iam_cb)
                     node.sensitivity_delta = delta
                     node.sensitivity_reason = reason
                     node.wildcard_trust = wildcard
@@ -1049,16 +1584,6 @@ def analyze_blast_radius(
 
     if dot_text and nodes:
         forward, reverse = parse_dot_graph(dot_text)
-        # Use reverse adjacency: reverse[X] = things that depend on X.
-        # This ensures BFS traverses downstream dependents, not upstream
-        # dependencies (subnet, VPC) that are not impacted by a change to X.
-        #
-        # Special case for control-point nodes (IAM policy, RBAC, network):
-        # These attach TO a parent resource (e.g. aws_iam_role_policy → role)
-        # via a forward edge, but nothing depends on the policy itself.
-        # The impact flows through the shared parent to all its consumers.
-        # Seed BFS from one forward hop of each control-point node so those
-        # consumers are reachable.
         changed_addrs = {n.address for n in nodes}
         extra_seeds: set[str] = set()
         for node in nodes:
@@ -1076,10 +1601,6 @@ def analyze_blast_radius(
         l2_affected = [ar for ar in all_ar if ar.depth >= 2]
         if not (has_boundary or has_destructive):
             l2_affected = []
-        # Filter out resources whose DOT-graph address is just the base name of
-        # indexed plan resources (e.g. "aws_security_group.bulk" when the plan
-        # contains "aws_security_group.bulk[0]" .. "[49]").  Without this,
-        # those nodes are counted as cross-boundary hits and block the greenfield cap.
         all_affected = [
             ar for ar in l1_affected + l2_affected
             if not _addr_in_plan(ar.address, changed_addrs)
@@ -1087,20 +1608,30 @@ def analyze_blast_radius(
         l1_affected = [ar for ar in all_affected if ar.depth == 1]
         l2_affected = [ar for ar in all_affected if ar.depth >= 2]
 
-    # History prior
-    changed_types = list({n.resource_type for n in nodes})
-    history_count, history_matches = compute_history_prior(changed_types, nodes, repo)
+    # Unified smart matching — replaces both history_prior and resource_warnings
+    relevant_fixes = find_relevant_fixes(nodes, repo, max_total=max_resource_warnings)
 
-    # Tribal knowledge: surface prior fixes for all changed resource types
-    resource_warnings = find_resource_prior_fixes(
-        nodes, repo, max_total=max_resource_warnings, tag_only=tag_only
-    )
+    # Compute history count for blast score — only qualifying matches
+    qualifying_fixes = []
+    for rf in relevant_fixes:
+        conf = rf.get("confidence", "low")
+        if conf == "high":
+            qualifying_fixes.append(rf)
+        elif conf == "medium":
+            supporting = rf.get("match_reason", {}).get("supporting_signals", [])
+            if len(supporting) >= 1:
+                qualifying_fixes.append(rf)
+    history_count = min(len(qualifying_fixes[:3]), 3)
 
-    # Blast score — linear formula.
-    # Filter L1/L2 to only count resources NOT in the plan itself, so that
-    # intra-plan dependency edges (new resource → new resource) don't inflate
-    # the score. For greenfield plans this removes all intra-plan L1/L2 noise;
-    # only cross-boundary edges to existing infra are counted (at reduced weight).
+    # Backward compat: populate legacy fields from relevant_fixes
+    resource_warnings = relevant_fixes
+    history_matches = [
+        {"id": rf["short_id"], "issue": rf["issue"],
+         "resource_type": rf.get("match_reason", {}).get("resource_type", "")}
+        for rf in qualifying_fixes[:3]
+    ]
+
+    # Blast score
     changed_addresses = {n.address for n in nodes}
     l1_score_count = sum(1 for ar in l1_affected if not _addr_in_plan(ar.address, changed_addresses))
     l2_score_count = sum(1 for ar in l2_affected if not _addr_in_plan(ar.address, changed_addresses))
@@ -1116,13 +1647,14 @@ def analyze_blast_radius(
         {"label": e.label, "delta": e.delta, "kind": e.kind} for e in explanation
     ]
 
-    # Recommended checks
-    has_deletes = any(n.action in ("delete", "replace") for n in nodes)
-    checks = generate_checks(control_points, has_deletes)
+    # Contextual checks
+    ctx_checks = generate_contextual_checks(nodes, relevant_fixes)
+    # Legacy checks field: flat list of check strings
+    checks = [c["check"] for c in ctx_checks]
 
     # Build why-paths for affected resources
     why_paths = []
-    for ar in all_affected[:20]:  # Cap at 20 for readability
+    for ar in all_affected[:20]:
         why_paths.append(
             {
                 "target": ar.address,
@@ -1171,6 +1703,8 @@ def analyze_blast_radius(
         plan_summary=plan_summary,
         resource_warnings=resource_warnings,
         score_explanation=score_explanation,
+        relevant_fixes=relevant_fixes,
+        contextual_checks=ctx_checks,
     )
 
 

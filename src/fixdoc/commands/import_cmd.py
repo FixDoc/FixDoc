@@ -6,7 +6,7 @@ from typing import Optional
 import click
 
 from ..importers.base import ImportResult, is_high_signal, parse_csv, parse_json
-from ..importers import jira, servicenow
+from ..importers import jira, servicenow, notion
 from ..storage import FixRepository
 
 
@@ -271,13 +271,14 @@ def _shared_options(allow_description_option: bool = False):
 
 @click.group(name="import")
 def import_group():
-    """Import closed fixes from Jira or ServiceNow files.
+    """Import closed fixes from Jira, ServiceNow, or Notion.
 
     \b
     Examples:
         fixdoc import jira export.csv --closed --auto
         fixdoc import jira backup.json --closed --dry-run
         fixdoc import servicenow incidents.json --allow-description-as-resolution
+        fixdoc import notion --token TOKEN --database DB_ID --auto
     """
 
 
@@ -389,3 +390,72 @@ def snow_import(
         _review_flow(fixes, total_bad, repo, result, "servicenow", dry_run)
 
     _print_summary(result, "servicenow")
+
+
+@import_group.command("notion")
+@click.option("--token", required=True, envvar="NOTION_TOKEN",
+              help="Notion integration token (or set NOTION_TOKEN env var).")
+@click.option("--database", required=True,
+              help="Notion database ID.")
+@click.option("--title-field", default=None,
+              help="Property name for issue title (default: Name/Title/Summary/Incident/Issue).")
+@click.option("--resolution-field", default=None,
+              help="Property name for resolution (default: Resolution/Fix/Notes/Description/Postmortem/…).")
+@click.option("--status-field", default=None,
+              help="Property name for status (default: Status/State/Ticket Status/Progress).")
+@click.option("--done-values", default=None,
+              help="Comma-separated status values treated as closed (default: Done,Closed,Resolved,Fixed,…).")
+@click.option("--closed/--no-closed", default=True,
+              help="Only import closed records (default: yes).")
+@click.option("--auto", is_flag=True, default=False,
+              help="Auto mode: skip review, apply low-signal filter.")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Parse and report without saving.")
+@click.option("--max", "max_count", type=int, default=None,
+              help="Max pages to process.")
+@click.option("--tags", "extra_tags", type=str, default=None,
+              help="Extra tags for all imports (comma-separated).")
+@click.pass_context
+def notion_cmd(
+    ctx, token, database, title_field, resolution_field, status_field,
+    done_values, closed, auto, dry_run, max_count, extra_tags,
+):
+    """Import fixes from a Notion database via the Notion API."""
+    extra = _parse_extra_tags(extra_tags)
+
+    click.echo("[import] Fetching pages from Notion database ...")
+    try:
+        pages = notion.fetch_pages(token, database, max_count=max_count)
+    except RuntimeError as exc:
+        click.echo(f"[import] Error: {exc}", err=True)
+        ctx.exit(1)
+        return
+
+    click.echo(f"[import] {len(pages)} pages fetched.")
+
+    fixes, skipped_open, skipped_missing, bad_rows = notion.extract(
+        pages,
+        closed_only=closed,
+        extra_tags=extra,
+        max_count=max_count,
+        title_field=title_field,
+        resolution_field=resolution_field,
+        status_field=status_field,
+        done_values=done_values,
+        fetch_blocks_fn=lambda pid: notion.fetch_page_blocks(token, pid),
+    )
+
+    click.echo(f"[import] {skipped_open} skipped as open/in-progress")
+    click.echo(f"[import] {skipped_missing} skipped for missing title or resolution")
+    click.echo(f"[import] {len(fixes)} candidate fix(es) after filtering")
+
+    repo = FixRepository(ctx.obj["base_path"])
+    result = ImportResult(dry_run=dry_run)
+    result.bad_rows = bad_rows
+
+    if auto:
+        _auto_flow(fixes, 0, repo, result, dry_run)
+    else:
+        _review_flow(fixes, 0, repo, result, "notion", dry_run)
+
+    _print_summary(result, "notion")

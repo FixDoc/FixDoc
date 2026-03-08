@@ -19,6 +19,22 @@ AWS_RESOURCE_PATTERN = re.compile(r'\baws_[a-z_]+\b', re.IGNORECASE)
 AZURE_RESOURCE_PATTERN = re.compile(r'\bazurerm_[a-z_]+\b', re.IGNORECASE)
 GCP_RESOURCE_PATTERN = re.compile(r'\bgoogle_[a-z_]+\b', re.IGNORECASE)
 
+# TF config/workflow error title → PascalCase error code
+TF_CONFIG_ERRORS = {
+    "invalid default value": "InvalidDefaultValue",
+    "no value for required variable": "MissingRequiredVariable",
+    "unsupported argument": "UnsupportedArgument",
+    "missing required argument": "MissingRequiredArgument",
+    "reference to undeclared": "UndeclaredReference",
+    "inconsistent dependency lock file": "InconsistentLockFile",
+    "module not installed": "ModuleNotInstalled",
+    "failed to query available provider packages": "ProviderQueryFailed",
+    "invalid value for input variable": "InvalidInputVariable",
+    "this object does not have an attribute": "UndeclaredAttribute",
+}
+
+_INIT_CODES = {"InconsistentLockFile", "ModuleNotInstalled", "ProviderQueryFailed"}
+
 # Common AWS error codes
 AWS_ERROR_CODES = {
     'AccessDenied', 'AccessDeniedException', 'UnauthorizedAccess',
@@ -77,7 +93,6 @@ class TerraformParser(ErrorParser):
             r'Plan:.*to add.*to change.*to destroy',
             r'terraform\s+(init|plan|apply)',
         ]
-        text_lower = text.lower()
         return any(re.search(pattern, text, re.IGNORECASE) for pattern in indicators) #regex to determine if we can parse
 
     def parse(self, text: str) -> list[TerraformError]:
@@ -230,6 +245,30 @@ class TerraformParser(ErrorParser):
                     info['name'] = alt_match.group(2).strip()
                     info['address'] = f"{info['type']}.{info['name']}"
 
+        if info['address'] == 'unknown':
+            # Pattern 5: TF config-scope blocks (variable, local, output, module call)
+            for scope_type in ("variable", "local", "output", "module"):
+                m = re.search(rf'in {scope_type} "([a-zA-Z0-9_-]+)"', clean_text)
+                if m:
+                    name = m.group(1)
+                    info['address'] = f'{scope_type}.{name}'
+                    info['type'] = scope_type
+                    info['name'] = name
+                    return info
+
+        if info['address'] == 'unknown':
+            # Pattern 6: Terraform workflow errors (init/lock/provider)
+            # Extract error title from the Error: line
+            title_match = re.search(r'Error:\s*(.+?)(?:\n|$)', clean_text)
+            error_title = title_match.group(1).lower() if title_match else ""
+            for fragment, code in TF_CONFIG_ERRORS.items():
+                if fragment in error_title:
+                    if code in _INIT_CODES:
+                        info['address'] = 'terraform.init'
+                        info['type'] = 'terraform'
+                        info['name'] = 'init'
+                    return info
+
         return info
 
     def _detect_cloud_provider(self, text: str, resource_type: Optional[str] = None) -> CloudProvider:
@@ -307,6 +346,14 @@ class TerraformParser(ErrorParser):
         status_code_match = re.search(r'StatusCode:\s*(\d+)', text)
         if status_code_match:
             return status_code_match.group(1)
+
+        # Fallback: match error title against known TF config error patterns
+        title_match = re.search(r'Error:\s*(.+?)(?:\n|$)', text)
+        if title_match:
+            title_lower = title_match.group(1).lower()
+            for fragment, code in TF_CONFIG_ERRORS.items():
+                if fragment in title_lower:
+                    return code
 
         return None
 
