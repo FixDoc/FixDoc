@@ -7,6 +7,8 @@ dist/
 CLAUDE.md
 .gitignore
 *.md
+!prd.md
+!docs/**/*.md
 test*
 tests/
 .fixdoc-pending
