@@ -21,9 +21,7 @@ from .models import TYPE_PREFIXES, Entry
 
 # Entry filenames ARE ids per the spec (fx_7c2a91e4.md); anything else in
 # knowledge/ (README.md, notes) is not ours to parse.
-_ENTRY_FILENAME_RE = re.compile(
-    r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values())
-)
+_ENTRY_FILENAME_RE = re.compile(r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values()))
 
 _SCHEMA_VERSION = "2"
 
@@ -149,10 +147,7 @@ class Index:
             params.append(entry_type)
         return [
             Row(
-                *r[:9],
-                json.loads(r[9] or "[]"),
-                json.loads(r[10] or "{}"),
-                list(array("f", r[11])),
+                *r[:9], json.loads(r[9] or "[]"), json.loads(r[10] or "{}"), list(array("f", r[11]))
             )
             for r in self.db.execute(sql, params).fetchall()
         ]

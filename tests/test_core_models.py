@@ -1,4 +1,4 @@
-"""Tests for fixdoc.core.models — Entry + markdown round-trip (spec v1)."""
+"""Tests for fixdoc.core.models — Entry + markdown round-trip per knowledge store spec v1."""
 
 import pytest
 
