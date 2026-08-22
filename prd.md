@@ -4,7 +4,7 @@
 
 FixDoc redesigned as an agent context store (pitch stays incident-specific:
 "your agents stop repeating incidents"). Area 1 spec written and committed:
-`docs/superpowers/specs/2026-08-21-knowledge-store-design.md`.
+`docs/specs/2026-08-21-knowledge-store-design.md`.
 
 Key decisions: format-not-location (git repo of markdown, index is derived hot
 path, agents only read via MCP); `knowledge/<namespace>/` tree with per-team

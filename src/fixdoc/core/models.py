@@ -1,7 +1,7 @@
 """Entry model + markdown round-trip for the knowledge store (spec v1).
 
 One entry per file: YAML frontmatter + ``## Section`` markdown body.
-See docs/superpowers/specs/2026-08-21-knowledge-store-design.md.
+See docs/specs/2026-08-21-knowledge-store-design.md.
 """
 
 import re
