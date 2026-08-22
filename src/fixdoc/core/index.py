@@ -133,6 +133,11 @@ class Index:
         ).fetchall()
         return [(Candidate(r[0], r[1], r[2]), list(array("f", r[3]))) for r in rows]
 
+    def path_for(self, entry_id):
+        """Relative path of an indexed entry's file, or None if unknown."""
+        row = self.db.execute("SELECT path FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        return row[0] if row else None
+
     def live(self, entry_type=None, include_quarantined=False):
         """Full rows for retrieval: validated (optionally + quarantined) entries."""
         statuses = ["validated"] + (["quarantined"] if include_quarantined else [])
