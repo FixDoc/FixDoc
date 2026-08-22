@@ -26,6 +26,10 @@ W_AGE = 0.1  # mild staleness penalty so dormant fixes slowly yield to fresher o
 # Results are injected mid-task, often several times per session, so the default
 # stays small enough not to crowd out the agent's actual working context; the
 # caller (the MCP layer) can raise or lower it per call.
+# Window-aware budgets belong to the caller: the engine cannot see which model
+# or context size is asking, but the agent can — an agent on a 1M-token window
+# passes a larger token_budget per call (the MCP tool exposes it), and
+# .fixdoc/config.yaml will carry a per-store default when config wiring lands.
 DEFAULT_TOKEN_BUDGET = 2000
 
 
