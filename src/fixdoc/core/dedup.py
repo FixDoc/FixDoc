@@ -11,6 +11,9 @@ from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 from .models import Entry
 
+# TODO(calibration): uncalibrated defaults from the design doc. The eval
+# harness's labeled pair set (duplicate|related|distinct) sweeps these;
+# per-store overrides land in .fixdoc/config.yaml.
 DUPLICATE_THRESHOLD = 0.92
 RELATED_THRESHOLD = 0.75
 

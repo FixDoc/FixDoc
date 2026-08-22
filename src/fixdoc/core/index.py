@@ -6,12 +6,19 @@ model name so a model change wholesale-invalidates the index.
 """
 
 import hashlib
+import re
 import sqlite3
 from array import array
 from collections import namedtuple
 from pathlib import Path
 
-from .models import Entry
+from .models import TYPE_PREFIXES, Entry
+
+# Entry filenames ARE ids per the spec (fx_7c2a91e4.md); anything else in
+# knowledge/ (README.md, notes) is not ours to parse.
+_ENTRY_FILENAME_RE = re.compile(
+    r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values())
+)
 
 # ponytail: brute-force cosine over all rows; add usearch/hnswlib if stores
 # grow past ~50k entries and search latency actually hurts.
@@ -61,6 +68,8 @@ class Index:
         seen = set()
         if store_dir.is_dir():
             for path in sorted(store_dir.rglob("*.md")):
+                if not _ENTRY_FILENAME_RE.match(path.name):
+                    continue
                 rel = str(path.relative_to(store_dir))
                 seen.add(rel)
                 text = path.read_text()

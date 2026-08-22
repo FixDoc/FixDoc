@@ -94,14 +94,23 @@ class TestSync:
         assert stats["added"] == 1  # re-added from scratch
         assert len(embed.calls) == first_calls + 1
 
-    def test_malformed_file_skipped_not_fatal(self, tmp_path):
+    def test_non_entry_files_silently_ignored(self, tmp_path):
         store = tmp_path / "knowledge"
         write_entry(store, make_fix())
-        bad = store / "platform" / "notes.md"
-        bad.write_text("no frontmatter here")
+        (store / "platform" / "README.md").write_text("# About this namespace")
+        (store / "platform" / "notes.md").write_text("no frontmatter here")
         stats = Index(tmp_path / "idx", CountingEmbed(), "test-model").sync(store)
         assert stats["added"] == 1
-        assert len(stats["skipped"]) == 1
+        assert stats["skipped"] == []
+
+    def test_malformed_entry_file_skipped_not_fatal(self, tmp_path):
+        store = tmp_path / "knowledge"
+        write_entry(store, make_fix())
+        bad = store / "platform" / "fx_deadbeef.md"
+        bad.write_text("looks like an entry filename, but no frontmatter")
+        stats = Index(tmp_path / "idx", CountingEmbed(), "test-model").sync(store)
+        assert stats["added"] == 1
+        assert stats["skipped"] == ["platform/fx_deadbeef.md"]
 
     def test_index_persists_across_instances(self, tmp_path):
         store = tmp_path / "knowledge"
