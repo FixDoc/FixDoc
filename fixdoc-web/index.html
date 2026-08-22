@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FixDoc — Three intelligence engines for infrastructure fixes</title>
-<meta name="description" content="FixDoc classifies errors, analyzes change impact, and learns from outcomes. Three intelligence engines that give your infrastructure a memory.">
+<title>FixDoc | Your agents stop repeating incidents</title>
+<meta name="description" content="FixDoc is an MCP-native incident knowledge store for AI agents. Validated fixes in, ranked context out. Git-owned, human-reviewed, runs fully local.">
 
 <!-- Inter for UI · JetBrains Mono for code -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -361,16 +361,6 @@ section{padding:5rem 1.5rem;position:relative}
 .engine-cyan .engine-features li::before{background:var(--cyan)}
 .engine-amber .engine-features li::before{background:var(--amber)}
 
-.engine-progress{
-  height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;
-}
-.engine-progress-bar{
-  height:100%;border-radius:2px;width:0;
-  transition:width 1.2s cubic-bezier(0.16,1,.3,1);
-}
-.engine-green .engine-progress-bar{background:var(--green)}
-.engine-cyan .engine-progress-bar{background:var(--cyan)}
-.engine-amber .engine-progress-bar{background:var(--amber)}
 
 /* ==========================================================================
    SCORE EXPLANATION CHIPS
@@ -499,17 +489,6 @@ code{
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
 @media(max-width:700px){.grid-2{grid-template-columns:1fr}}
 
-/* ==========================================================================
-   CONTRAST GRID (Not another tool)
-   ========================================================================== */
-.contrast-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
-@media(max-width:700px){.contrast-grid{grid-template-columns:1fr}}
-.cc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.75rem}
-.cc-not{border-color:rgba(255,77,109,.15)}
-.cc-is{border-color:rgba(0,255,136,.15)}
-.cc-title{font-size:.9375rem;font-weight:700;margin-bottom:1.25rem}
-.cc-list{list-style:none;display:flex;flex-direction:column;gap:.875rem}
-.cc-list li{display:flex;align-items:flex-start;gap:.625rem;font-size:.9375rem;color:var(--tx-2);line-height:1.5}
 </style>
 </head>
 <body>
@@ -530,11 +509,11 @@ code{
     <span class="nav-logo-text">FixDoc</span>
   </a>
   <div class="nav-links">
-    <a href="#engines"      class="nav-link">Engines</a>
-    <a href="#analyze"      class="nav-link">Analyze</a>
-    <a href="#use-cases"    class="nav-link">Use Cases</a>
-    <a href="demo.html"     class="nav-link">Demo</a>
-    <a href="https://github.com/fiyiogunkoya/FixDoc" target="_blank" rel="noopener" class="nav-link">GitHub &#8599;</a>
+    <a href="#loop"      class="nav-link">How it works</a>
+    <a href="#retrieval" class="nav-link">Retrieval</a>
+    <a href="#own"       class="nav-link">Own it</a>
+    <a href="#tiers"     class="nav-link">Pricing</a>
+    <a href="https://github.com/FixDoc/FixDoc" target="_blank" rel="noopener" class="nav-link">GitHub &#8599;</a>
   </div>
   <a href="#get-started" class="nav-cta">Get Started</a>
 </nav>
@@ -550,32 +529,32 @@ code{
     <div>
       <div class="hero-eyebrow">
         <span class="eyebrow-dot"></span>
-        Three Intelligence Engines&nbsp;&nbsp;//&nbsp;&nbsp;Infrastructure
+        MCP-Native&nbsp;&nbsp;//&nbsp;&nbsp;Incident Knowledge
       </div>
       <h1 class="hero-h1">
-        Your infrastructure has a memory problem.<br>
-        <span class="hero-h1-accent">FixDoc gives it three brains.</span>
+        Your agents stop<br>
+        <span class="hero-h1-accent">repeating incidents.</span>
       </h1>
       <p class="hero-sub">
-        FixDoc classifies every error by memory-worthiness, analyzes change impact with
-        score explanations, and learns from apply outcomes &mdash; so your team builds on
-        past fixes instead of repeating them.
+        FixDoc is a knowledge store your AI agents query over MCP before debugging
+        production. Validated fixes, playbooks, and environment insights go in.
+        Ranked, token-budgeted context comes out.
       </p>
       <div class="hero-ctas">
-        <a href="demo.html" class="btn-p">Run the Demo</a>
-        <a href="https://github.com/fiyiogunkoya/FixDoc" target="_blank" rel="noopener" class="btn-s">
+        <a href="#get-started" class="btn-p">Get started</a>
+        <a href="https://github.com/FixDoc/FixDoc" target="_blank" rel="noopener" class="btn-s">
           View on GitHub
           <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
         </a>
       </div>
-      <p class="hero-tagline">Capture. Classify. Predict.</p>
+      <p class="hero-tagline">Resolve. Record. Promote.</p>
       <div class="hero-install" onclick="copyHeroInstall(this)">
         <span class="prompt">$</span>
-        <span>pipx install fixdoc &amp;&amp; fixdoc demo tour</span>
+        <span>pipx install fixdoc &amp;&amp; fixdoc init</span>
       </div>
       <div class="hero-trust">
         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        <span>Local-first by default. Stores fixes in <code>~/.fixdoc</code>. Git sync is optional. Private fixes never sync.</span>
+        <span>Works with Claude Code, Cursor, and any MCP client. Your knowledge is a git repo of markdown you own. Local mode makes zero network calls.</span>
       </div>
     </div>
 
@@ -584,7 +563,7 @@ code{
       <div class="hero-terminal">
         <div class="term-hdr">
           <div class="t-dot r"></div><div class="t-dot y"></div><div class="t-dot g"></div>
-          <span class="t-lbl">fixdoc — defer-first capture</span>
+          <span class="t-lbl">fixdoc &middot; mcp server</span>
         </div>
         <div class="term-body" id="hero-term-body"></div>
       </div>
@@ -599,7 +578,7 @@ code{
   <div class="gs-inner">
     <span class="s-eyebrow reveal">// INSTALL</span>
     <h2 class="s-title reveal" style="margin-bottom:.75rem">Get started in 60 seconds</h2>
-    <p class="s-sub reveal" style="margin-bottom:2rem">Install FixDoc and start building your fix library.</p>
+    <p class="s-sub reveal" style="margin-bottom:2rem">Install, connect your agent, index your knowledge.</p>
     <div class="terminal reveal" style="text-align:left;position:relative">
       <div class="term-hdr">
         <div class="t-dot r"></div><div class="t-dot y"></div><div class="t-dot g"></div>
@@ -609,8 +588,7 @@ code{
       <div class="term-body" id="install-body"></div>
     </div>
     <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-top:1.5rem" class="reveal">
-      <a href="demo.html" class="btn-p">Run the Demo</a>
-      <a href="https://github.com/fiyiogunkoya/FixDoc" target="_blank" rel="noopener" class="btn-s">
+      <a href="https://github.com/FixDoc/FixDoc" target="_blank" rel="noopener" class="btn-s">
         View on GitHub
         <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
       </a>
@@ -619,267 +597,200 @@ code{
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════
-     INTELLIGENCE ENGINES
+     THE LOOP
 ══════════════════════════════════════════════════════════════════════ -->
-<section id="engines" class="section-alt">
+<section id="loop" class="section-alt">
   <div class="si">
     <div class="tc-center reveal">
-      <span class="s-eyebrow">// INTELLIGENCE ENGINES</span>
-      <h2 class="s-title">Three intelligence engines</h2>
-      <p class="s-sub">Each engine handles a different phase of your infrastructure lifecycle</p>
+      <span class="s-eyebrow">// HOW IT WORKS</span>
+      <h2 class="s-title">Every incident makes the next one shorter</h2>
+      <p class="s-sub">Four MCP tools: <code>search_fixes</code>, <code>record_fix</code>, <code>confirm_fix</code>, <code>get_fix</code>. That is the entire agent surface. Everything else, including validation and deletion, is a human act in your git repo.</p>
     </div>
 
-    <!-- Engine Detail Cards -->
     <div class="engines-grid">
       <div class="engine-card engine-green reveal d1">
-        <div class="engine-title">
-          <svg width="18" height="18" fill="none" stroke="var(--green)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-          Change Intelligence
-        </div>
-        <p class="engine-desc">Understands what a Terraform change will do before you apply it.</p>
-        <ul class="engine-features">
-          <li>Change impact scoring with sigmoid formula (0&ndash;100)</li>
-          <li>BFS propagation through dependency DAG</li>
-          <li>IAM sensitivity scoring with wildcard trust detection</li>
-          <li>Smart fix matching with 8 change domains</li>
-          <li>Contextual checks from attribute + history</li>
-          <li>Score explanation bullets (action, IAM, impact, history)</li>
-          <li>AI-powered natural language explanations</li>
-          <li>Outcome learning with plan fingerprint linking</li>
-        </ul>
-        <div class="engine-progress"><div class="engine-progress-bar" data-width="85"></div></div>
+        <div class="engine-title">01 &middot; A symptom hits</div>
+        <p class="engine-desc">Your agent is mid-debug on a production issue. Before guessing, it calls <code>search_fixes</code> with the symptom.</p>
       </div>
-
       <div class="engine-card engine-cyan reveal d2">
-        <div class="engine-title">
-          <svg width="18" height="18" fill="none" stroke="var(--cyan)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-          Failure Intelligence
-        </div>
-        <p class="engine-desc">Classifies, diagnoses, and routes errors when your commands fail.</p>
-        <ul class="engine-features">
-          <li>Memory-worthiness classifier (memory-worthy vs self-explanatory)</li>
-          <li>AI error diagnosis explaining WHY it happened</li>
-          <li>Fix suggestions with effectiveness scores</li>
-          <li>Slack push notifications with Block Kit</li>
-          <li>Recurrence-based promotion (3+ similar &rarr; memory-worthy)</li>
-        </ul>
-        <div class="engine-progress"><div class="engine-progress-bar" data-width="70"></div></div>
+        <div class="engine-title">02 &middot; Validated knowledge returns</div>
+        <p class="engine-desc">Ranked entries with provenance: who validated it, how many incidents it resolved, the file it lives in. <code>get_fix</code> pulls any full entry by ID.</p>
       </div>
-
       <div class="engine-card engine-amber reveal d3">
-        <div class="engine-title">
-          <svg width="18" height="18" fill="none" stroke="var(--amber)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-          Memory Engine
-        </div>
-        <p class="engine-desc">Stores, classifies, and retrieves fixes with type-aware rendering.</p>
-        <ul class="engine-features">
-          <li>4 memory types: fix, check, playbook, insight</li>
-          <li>Type-aware preview rendering in suggestions</li>
-          <li>Effectiveness tracking (applied_count, success_count)</li>
-          <li>Source error ID linking across sessions</li>
-          <li>Bidirectional markdown round-trip for Git sync</li>
-        </ul>
-        <div class="engine-progress"><div class="engine-progress-bar" data-width="75"></div></div>
+        <div class="engine-title">03 &middot; The incident resolves</div>
+        <p class="engine-desc">Minutes instead of an afternoon of rediscovery. The agent calls <code>record_fix</code> with what actually worked.</p>
+      </div>
+      <div class="engine-card engine-green reveal d2">
+        <div class="engine-title">04 &middot; Quarantine, then review</div>
+        <p class="engine-desc">New entries land in quarantine. Nothing an agent writes is retrievable until a human promotes it with a PR merge. CODEOWNERS scopes who validates what.</p>
+      </div>
+      <div class="engine-card engine-cyan reveal d3">
+        <div class="engine-title">05 &middot; The next agent starts smarter</div>
+        <p class="engine-desc">Once promoted, the entry ranks by proof. <code>confirm_fix</code> bumps its occurrence count every time it resolves a real incident. At quarter end you can say: &ldquo;Fixes in FixDoc resolved 37 repeat incidents.&rdquo;</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════
-     CHANGE IMPACT ANALYZER
+     RETRIEVAL
 ══════════════════════════════════════════════════════════════════════ -->
-<section id="analyze">
+<section id="retrieval">
   <div class="si">
     <div class="tc-center reveal">
-      <span class="s-eyebrow">// CHANGE IMPACT ANALYZER</span>
-      <h2 class="s-title">See your change impact. Understand why.</h2>
-      <p class="s-sub">Understand how one change propagates through your infrastructure</p>
+      <span class="s-eyebrow">// RETRIEVAL</span>
+      <h2 class="s-title">Whole answers, ranked by proof</h2>
+      <p class="s-sub"><code>search_fixes</code> returns complete fix bodies inside a token budget. Never a truncated paragraph, never a link the agent cannot follow. Ranking weighs validation status and real resolution counts, not just embedding distance.</p>
     </div>
 
-    <div class="impact-wrap reveal" style="margin-top:3rem" id="impact-section">
-      <!-- Score counter -->
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:.75rem;margin-bottom:1.25rem">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--tx-3)">Score:</span>
-        <span id="impact-score" style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:800;color:var(--tx-1);line-height:1">0</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:.875rem;color:var(--tx-3)">&nbsp;/ 100</span>
-        <span id="impact-badge" style="font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700;color:var(--red);background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:6px;padding:.25rem .625rem;opacity:0;transition:opacity .4s ease">[HIGH]</span>
-      </div>
-
-      <!-- SVG dependency graph -->
-      <svg id="impact-svg" viewBox="0 0 900 400" width="100%" style="max-height:420px;overflow:visible">
-        <text x="80"  y="24" text-anchor="middle" fill="#2a2a2a" font-size="11" font-family="JetBrains Mono,monospace" font-weight="700" letter-spacing="1">Plan Change</text>
-        <text x="320" y="24" text-anchor="middle" fill="#2a2a2a" font-size="11" font-family="JetBrains Mono,monospace" font-weight="700" letter-spacing="1">Policy / RBAC</text>
-        <text x="560" y="24" text-anchor="middle" fill="#2a2a2a" font-size="11" font-family="JetBrains Mono,monospace" font-weight="700" letter-spacing="1">Workloads</text>
-        <text x="800" y="24" text-anchor="middle" fill="#2a2a2a" font-size="11" font-family="JetBrains Mono,monospace" font-weight="700" letter-spacing="1">Resources</text>
-        <!-- Edges -->
-        <line class="be" id="e1a" x1="155" y1="190" x2="230" y2="140" stroke="#ff4d6d" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e1b" x1="155" y1="190" x2="230" y2="240" stroke="#ff4d6d" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e2a" x1="410" y1="140" x2="470" y2="100" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e2b" x1="410" y1="140" x2="470" y2="190" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e2c" x1="410" y1="240" x2="470" y2="190" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e2d" x1="410" y1="240" x2="470" y2="280" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e3a" x1="650" y1="100" x2="710" y2="80"  stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e3b" x1="650" y1="100" x2="710" y2="160" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e3c" x1="650" y1="190" x2="710" y2="160" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e3d" x1="650" y1="190" x2="710" y2="240" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <line class="be" id="e3e" x1="650" y1="280" x2="710" y2="320" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="5 3" opacity=".6"/>
-        <!-- Nodes -->
-        <g class="bn" id="bn-root">
-          <rect x="5" y="160" width="150" height="60" rx="8" fill="#111" stroke="#ff4d6d" stroke-width="1.5"/>
-          <text x="80" y="184" text-anchor="middle" fill="#f0f0f0" font-size="11" font-family="JetBrains Mono,monospace">aws_iam_role.app</text>
-          <rect x="45" y="195" width="70" height="19" rx="4" fill="#ff4d6d"/>
-          <text x="80" y="209" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="JetBrains Mono,monospace">DELETE</text>
-        </g>
-        <g class="bn" id="bn-2a">
-          <rect x="230" y="110" width="180" height="55" rx="8" fill="#111" stroke="#f59e0b" stroke-width="1.5"/>
-          <text x="320" y="133" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">iam_policy_attachment</text>
-          <text x="320" y="152" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 1</text>
-        </g>
-        <g class="bn" id="bn-2b">
-          <rect x="230" y="210" width="180" height="55" rx="8" fill="#111" stroke="#f59e0b" stroke-width="1.5"/>
-          <text x="320" y="233" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">role_policy</text>
-          <text x="320" y="252" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 1</text>
-        </g>
-        <g class="bn" id="bn-3a">
-          <rect x="470" y="72"  width="180" height="55" rx="8" fill="#111" stroke="#00d4ff" stroke-width="1.5"/>
-          <text x="560" y="95"  text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">lambda_function.api</text>
-          <text x="560" y="114" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 2</text>
-        </g>
-        <g class="bn" id="bn-3b">
-          <rect x="470" y="162" width="180" height="55" rx="8" fill="#111" stroke="#00d4ff" stroke-width="1.5"/>
-          <text x="560" y="185" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">ecs_task.worker</text>
-          <text x="560" y="204" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 2</text>
-        </g>
-        <g class="bn" id="bn-3c">
-          <rect x="470" y="252" width="180" height="55" rx="8" fill="#111" stroke="#00d4ff" stroke-width="1.5"/>
-          <text x="560" y="275" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">ec2_instance.web</text>
-          <text x="560" y="294" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 2</text>
-        </g>
-        <g class="bn" id="bn-4a">
-          <rect x="710" y="52"  width="180" height="50" rx="8" fill="#111" stroke="#00ff88" stroke-width="1.5"/>
-          <text x="800" y="73"  text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">s3_bucket.data</text>
-          <text x="800" y="90"  text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 3</text>
-        </g>
-        <g class="bn" id="bn-4b">
-          <rect x="710" y="132" width="180" height="50" rx="8" fill="#111" stroke="#00ff88" stroke-width="1.5"/>
-          <text x="800" y="153" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">dynamodb.sessions</text>
-          <text x="800" y="170" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 3</text>
-        </g>
-        <g class="bn" id="bn-4c">
-          <rect x="710" y="212" width="180" height="50" rx="8" fill="#111" stroke="#00ff88" stroke-width="1.5"/>
-          <text x="800" y="233" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">sqs_queue.events</text>
-          <text x="800" y="250" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 3</text>
-        </g>
-        <g class="bn" id="bn-4d">
-          <rect x="710" y="292" width="180" height="50" rx="8" fill="#111" stroke="#00ff88" stroke-width="1.5"/>
-          <text x="800" y="313" text-anchor="middle" fill="#f0f0f0" font-size="10" font-family="JetBrains Mono,monospace">cloudwatch.alarms</text>
-          <text x="800" y="330" text-anchor="middle" fill="#333" font-size="9" font-family="JetBrains Mono,monospace">depth: 3</text>
-        </g>
-      </svg>
-
-      <!-- Score explanation chips (appear after counter) -->
-      <div class="score-chips" id="impact-explain">
-        <span class="score-chip chip-action">+25 delete action</span>
-        <span class="score-chip chip-iam">+18 IAM policy changed</span>
-        <span class="score-chip chip-impact">+15 BFS depth 3</span>
-        <span class="score-chip chip-history">+14 2 prior fix matches</span>
-      </div>
-
-      <div class="tc-center" style="margin-top:1rem">
-        <button id="impact-replay" style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--tx-3);background:transparent;border:1px solid #222;border-radius:6px;padding:.4rem 1.25rem;cursor:pointer;transition:color .2s,border-color .2s">Replay Animation</button>
-      </div>
-    </div>
-
-    <div class="terminal reveal" style="max-width:640px;margin:2rem auto 0">
+    <div class="terminal reveal" style="max-width:760px;margin:3rem auto 0;text-align:left">
       <div class="term-hdr">
         <div class="t-dot r"></div><div class="t-dot y"></div><div class="t-dot g"></div>
-        <span class="t-lbl">analyze change impact before applying</span>
+        <span class="t-lbl">search_fixes &middot; response</span>
       </div>
       <div class="term-body">
-        <div class="tc"># Analyze your change impact before applying</div>
-        <div class="tp" style="margin-top:.25rem">$ terraform show -json plan.tfplan &gt; plan.json</div>
-        <div class="tp">$ fixdoc analyze plan.json</div>
-        <div style="margin-top:.5rem;color:var(--tx-1)">Score: 72.4 / 100 &nbsp;<span style="color:var(--amber);font-weight:700">[HIGH]</span></div>
-        <div class="to" style="margin-top:.25rem">Why this scored 72:</div>
-        <div class="to">&nbsp;&nbsp;<span style="color:var(--red)">+25</span> delete action on IAM role</div>
-        <div class="to">&nbsp;&nbsp;<span style="color:var(--amber)">+18</span> IAM policy field changed</div>
-        <div class="to">&nbsp;&nbsp;<span style="color:var(--cyan)">+15</span> BFS propagation depth 3</div>
-        <div class="to">&nbsp;&nbsp;<span style="color:var(--green)">+14</span> 2 prior fix matches</div>
-        <div style="color:var(--cyan);margin-top:.375rem">Relevant Past Fixes: aws_iam_role [high: error code: AccessDenied]</div>
-        <div class="to">Contextual Checks: [attr] Verify IAM trust policy principals</div>
+        <div class="tc"># search_fixes("pods stuck Pending after nodepool scale-up")</div>
+        <div style="margin-top:.5rem;color:var(--tx-1)">fx-8a41c2 &nbsp;<span style="color:var(--green);font-weight:700">validated</span> &nbsp;occurrences: 3 &nbsp;similarity: 0.91</div>
+        <div class="to">AKS pods stuck Pending after nodepool scale-up</div>
+        <div class="to">validated_by: @platform-team &middot; fixes/aks/pods-pending-nodepool-scaleup.md</div>
+        <div style="margin-top:.5rem;color:var(--tx-1)">Root cause: Azure CNI reserves max_pods IPs per node at creation, and the nodepool subnet is exhausted.</div>
+        <div class="to">1. Confirm remaining IPs: az network vnet subnet show ... --query availableIpAddressCount</div>
+        <div class="to">2. If near zero, add a subnet or lower max_pods on the new nodepool.</div>
+        <div class="to">3. Do NOT delete Pending pods first. They reschedule and mask the count.</div>
+        <div class="tc" style="margin-top:.5rem">budget: 1 returned &middot; 7 candidates &middot; 412 / 2000 tokens</div>
+      </div>
+    </div>
+
+    <div class="engines-grid" style="margin-top:2.5rem">
+      <div class="engine-card engine-green reveal d1">
+        <div class="engine-title">Wrong-universe filtering</div>
+        <p class="engine-desc">An identical-sounding Databricks fix never surfaces for an AKS query. Environment metadata filters before similarity ranks.</p>
+      </div>
+      <div class="engine-card engine-cyan reveal d2">
+        <div class="engine-title">Trust-weighted ranking</div>
+        <p class="engine-desc">Validated entries with proven occurrence counts outrank fresh quarantine candidates. Similarity alone does not win.</p>
+      </div>
+      <div class="engine-card engine-amber reveal d3">
+        <div class="engine-title">Token budget</div>
+        <p class="engine-desc">Results fit the budget you set. Whole fix bodies or nothing. A half-truncated runbook is worse than no runbook.</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════
-     USE CASES
+     OWN YOUR KNOWLEDGE
 ══════════════════════════════════════════════════════════════════════ -->
-<section id="use-cases" class="section-alt">
+<section id="own" class="section-alt">
   <div class="si">
     <div class="tc-center reveal">
-      <span class="s-eyebrow">// USE CASES</span>
-      <h2 class="s-title">For every stage of your journey</h2>
+      <span class="s-eyebrow">// TRUST MODEL</span>
+      <h2 class="s-title">It&rsquo;s your repo. We index it.</h2>
+      <p class="s-sub">Your knowledge base is a git repository of markdown files that you own. FixDoc adds the index, the ranking, and the MCP surface. It never becomes the system of record.</p>
     </div>
     <div class="uc-grid" style="margin-top:3rem">
       <div class="uc-card tilt reveal d1">
-        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
-        <div class="uc-title">Individual Engineers</div>
-        <p class="uc-desc">Build your personal fix library. Stop googling the same error twice. Your solutions, always at your fingertips.</p>
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+        <div class="uc-title">Markdown in git</div>
+        <p class="uc-desc">Every entry is a markdown file in a repo you control. Diff it, grep it, blame it, review it like code. No proprietary format, no export API.</p>
       </div>
       <div class="uc-card tilt reveal d2">
-        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
-        <div class="uc-title">Teams</div>
-        <p class="uc-desc">Shared knowledge base via Git sync. When one engineer solves it, everyone has access. No more duplicate debugging.</p>
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div>
+        <div class="uc-title">Validation is a PR</div>
+        <p class="uc-desc">Promotion from quarantine is a merge. CODEOWNERS decides who validates what: the database team signs off on Postgres fixes, the platform team on Kubernetes.</p>
       </div>
       <div class="uc-card tilt reveal d3">
-        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
-        <div class="uc-title">Onboarding</div>
-        <p class="uc-desc">New engineers inherit your team&rsquo;s fix history on day one. Reduce ramp-up time, accelerate productivity.</p>
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></div>
+        <div class="uc-title">Leave with everything</div>
+        <p class="uc-desc">Delete FixDoc and your knowledge is intact and readable. Full git history, plain markdown, zero migration.</p>
       </div>
       <div class="uc-card tilt reveal d4">
-        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></div>
-        <div class="uc-title">CI/CD Pipelines</div>
-        <p class="uc-desc">Run change impact analysis on every PR. Gate merges by severity. Track outcomes post-apply.</p>
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></div>
+        <div class="uc-title">Local mode</div>
+        <p class="uc-desc">Index and embeddings are built and queried on your machine. Nothing leaves it. No account required.</p>
       </div>
-    </div>
-    <div class="tc-center" style="margin-top:3rem">
-      <a href="#get-started" class="btn-p">Start building your fix library</a>
     </div>
   </div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════
-     NOT ANOTHER TOOL — positioning
+     INGESTION
 ══════════════════════════════════════════════════════════════════════ -->
-<section class="section-alt">
+<section id="ingest">
   <div class="si">
     <div class="tc-center reveal">
-      <span class="s-eyebrow">// POSITIONING</span>
-      <h2 class="s-title">Not another tool</h2>
-      <p class="s-sub" style="margin-bottom:2.5rem">FixDoc does one thing well</p>
+      <span class="s-eyebrow">// INGESTION</span>
+      <h2 class="s-title">Tribal knowledge dies in Slack. Catch it.</h2>
+      <p class="s-sub">The fix for last month&rsquo;s outage exists. It is in a Slack thread, a closed ticket, or one engineer&rsquo;s head. FixDoc drains those sources into reviewable entries. Everything imported lands in quarantine, same as agent writes.</p>
     </div>
-    <div class="contrast-grid">
-      <div class="cc cc-not reveal d1">
-        <div class="cc-title" style="color:var(--red)">FixDoc is NOT</div>
-        <ul class="cc-list">
-          <li><span style="color:var(--red);flex-shrink:0">&#10005;</span> An incident management SaaS with dashboards and alerts</li>
-          <li><span style="color:var(--red);flex-shrink:0">&#10005;</span> A service catalog portal you have to log into</li>
-          <li><span style="color:var(--red);flex-shrink:0">&#10005;</span> A generic documentation tool</li>
-          <li><span style="color:var(--red);flex-shrink:0">&#10005;</span> An AI wrapper that requires an API key to function</li>
+    <div class="uc-grid" style="margin-top:3rem">
+      <div class="uc-card tilt reveal d1">
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+        <div class="uc-title">Watch any command</div>
+        <p class="uc-desc"><code>fixdoc watch -- terraform apply</code> wraps the command, tees output to your terminal, and captures failures with the error, resource address, and context. When the fix lands, it becomes an entry.</p>
+      </div>
+      <div class="uc-card tilt reveal d2">
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+        <div class="uc-title">Slack import</div>
+        <p class="uc-desc"><code>fixdoc import slack</code> captures fix threads using emoji reactions: issue emoji on the root message, resolution emoji on the reply that solved it.</p>
+      </div>
+      <div class="uc-card tilt reveal d3">
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></div>
+        <div class="uc-title">Jira and ServiceNow</div>
+        <p class="uc-desc"><code>fixdoc import jira</code> and <code>fixdoc import servicenow</code> turn closed tickets into entries. Close notes become resolutions. Source tags mean re-running never duplicates.</p>
+      </div>
+      <div class="uc-card tilt reveal d4">
+        <div class="uc-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
+        <div class="uc-title">Notion import</div>
+        <p class="uc-desc"><code>fixdoc import notion</code> pulls resolved incident pages. Section-aware extraction finds the Fix or Root Cause heading instead of ingesting the whole page.</p>
+      </div>
+    </div>
+    <div class="tc-center" style="margin-top:3rem">
+      <a href="#get-started" class="btn-p">Start capturing</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     TIERS
+══════════════════════════════════════════════════════════════════════ -->
+<section id="tiers" class="section-alt">
+  <div class="si">
+    <div class="tc-center reveal">
+      <span class="s-eyebrow">// PRICING</span>
+      <h2 class="s-title">Free where it counts</h2>
+    </div>
+    <div class="engines-grid" style="margin-top:3rem">
+      <div class="engine-card engine-green reveal d1">
+        <div class="engine-title">Free</div>
+        <p class="engine-desc">Open source. Runs locally. Forever. <code>pipx install fixdoc</code> and you are done.</p>
+        <ul class="engine-features">
+          <li>Unlimited entries and queries</li>
+          <li>All four MCP tools</li>
+          <li>All importers</li>
+          <li>Nothing leaves your machine</li>
         </ul>
       </div>
-      <div class="cc cc-is reveal d2">
-        <div class="cc-title" style="color:var(--green)">FixDoc IS</div>
-        <ul class="cc-list">
-          <li><span style="color:var(--green);flex-shrink:0">&#10003;</span> Terminal-first capture that fits your existing workflow</li>
-          <li><span style="color:var(--green);flex-shrink:0">&#10003;</span> A searchable fix history that lives on your machine</li>
-          <li><span style="color:var(--green);flex-shrink:0">&#10003;</span> An intelligent system that classifies errors, analyzes change impact, and learns from outcomes</li>
+      <div class="engine-card engine-cyan reveal d2">
+        <div class="engine-title">Team <span style="font-family:'JetBrains Mono',monospace;font-size:.625rem;font-weight:700;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:.15rem .5rem;margin-left:.5rem;vertical-align:middle">COMING SOON</span></div>
+        <p class="engine-desc">Hosted shared index, a review UI for quarantine, zero ops. Your git repo stays the source of truth. Not shipped yet.</p>
+        <ul class="engine-features">
+          <li>Hosted shared index</li>
+          <li>Review UI for quarantine</li>
+          <li>Zero ops</li>
         </ul>
+        <a href="https://github.com/FixDoc/FixDoc" target="_blank" rel="noopener" class="link-g">Watch the repo for the release &rarr;</a>
       </div>
-    </div>
-    <div class="tc-center" style="margin-top:2.5rem">
-      <a href="#get-started" class="link-g">Get started in 60 seconds &rarr;</a>
+      <div class="engine-card engine-amber reveal d3">
+        <div class="engine-title">Enterprise</div>
+        <p class="engine-desc">For teams whose incidents cannot leave the building.</p>
+        <ul class="engine-features">
+          <li>Self-hosted in your VPC</li>
+          <li>SSO and SCIM</li>
+          <li>Audit export for every read and write</li>
+        </ul>
+        <a href="https://github.com/FixDoc/FixDoc" target="_blank" rel="noopener" class="link-g">Talk to us &rarr;</a>
+      </div>
     </div>
   </div>
 </section>
@@ -890,25 +801,29 @@ code{
 <section>
   <div class="si">
     <div class="tc-center reveal">
-      <span class="s-eyebrow">// PRIVACY &amp; STORAGE</span>
+      <span class="s-eyebrow">// PRIVACY &amp; OWNERSHIP</span>
       <h2 class="s-title">Your data, your machine</h2>
     </div>
     <div class="faq-list" style="margin-top:2.5rem">
       <div class="faq-item reveal d1">
-        <div class="faq-q">What&rsquo;s stored?</div>
-        <p class="faq-a">Issue descriptions, resolutions, tags, and timestamps. Each fix is a simple JSON entry + a markdown file.</p>
+        <div class="faq-q">What leaves my machine in local mode?</div>
+        <p class="faq-a">Nothing. The index and embeddings are built and queried locally. There is no telemetry, no account, and no network call in the query path. The only thing that moves is your git repo, and it moves where you push it.</p>
       </div>
       <div class="faq-item reveal d2">
-        <div class="faq-q">Where does it live?</div>
-        <p class="faq-a">Everything is stored locally in <code>~/.fixdoc/</code>. No cloud service, no remote database.</p>
+        <div class="faq-q">Can an agent corrupt our knowledge base?</div>
+        <p class="faq-a">No. The MCP surface is four tools: <code>search_fixes</code>, <code>record_fix</code>, <code>confirm_fix</code>, <code>get_fix</code>. There is no delete tool and no admin tool by design. The worst a prompt-injected agent can do is create a quarantined entry that a human will read before it ever becomes retrievable.</p>
       </div>
       <div class="faq-item reveal d3">
-        <div class="faq-q">Does it phone home?</div>
-        <p class="faq-a">No. FixDoc makes zero network requests by default. It&rsquo;s a pure CLI tool with no telemetry or analytics.</p>
+        <div class="faq-q">Who owns the data?</div>
+        <p class="faq-a">You do, in the most literal sense. Every entry is a markdown file in a git repository under your account or your org. FixDoc holds an index of it, never the canonical copy.</p>
       </div>
       <div class="faq-item reveal d4">
-        <div class="faq-q">What about AI features?</div>
-        <p class="faq-a">AI diagnosis and AI explain are fully optional. Your API key stays on your machine. No data is sent unless you explicitly use <code>--diagnose</code> or <code>--ai-explain</code>. FixDoc works perfectly without them.</p>
+        <div class="faq-q">What happens if we stop using FixDoc?</div>
+        <p class="faq-a">You keep everything. Uninstall FixDoc and your repo is still a readable, greppable set of markdown files with full git history. There is no export step because there is nothing to export from.</p>
+      </div>
+      <div class="faq-item reveal d5">
+        <div class="faq-q">How will hosted differ when it ships?</div>
+        <p class="faq-a">Team moves the index and the quarantine review UI to our infrastructure so nobody on your team runs a server. The git repo remains yours, and validation remains a PR merge. It is not available yet. Until it ships, local mode is the product.</p>
       </div>
     </div>
   </div>
@@ -924,11 +839,10 @@ code{
       <span class="nav-logo-text" style="font-size:.9375rem">FixDoc</span>
     </a>
     <div class="foot-links">
-      <a href="https://github.com/fiyiogunkoya/FixDoc" target="_blank" rel="noopener" class="foot-link">GitHub</a>
-      <a href="demo.html" class="foot-link">Demo</a>
+      <a href="https://github.com/FixDoc/FixDoc" target="_blank" rel="noopener" class="foot-link">GitHub</a>
       <a href="#get-started" class="foot-link">Install</a>
     </div>
-    <div class="foot-tag">Built for infrastructure engineers</div>
+    <div class="foot-tag">Incident knowledge your agents query, your team validates, and you own.</div>
   </div>
 </footer>
 
@@ -1062,16 +976,17 @@ function typeText(el,text,speed,cb){
 <script>
 (function(){
   var steps=[
-    {cls:'tp',text:'$ fixdoc watch -- terraform apply',spd:55},
-    {gap:350},
-    {cls:'te',text:'Error: AccessDenied on aws_s3_bucket.data',spd:22},
-    {cls:'ti',text:'  Classification: memory-worthy',spd:16},
-    {cls:'ti',text:'  Similar fix: Added GetObject to bucket policy',spd:16},
-    {cls:'tt',text:'    75% effective · applied 4 times',spd:16},
+    {cls:'tc',text:'# claude code \u00b7 mid-incident',spd:14},
     {gap:300},
-    {cls:'ts',text:'Deferred to .fixdoc-pending (session a3f8c1b2)',spd:18},
-    {gap:280},
-    {cls:'tc',text:'  1 memory-worthy · 2 self-explanatory',spd:16},
+    {cls:'tp',text:'\u2192 search_fixes("pods pending after nodepool scale-up")',spd:26},
+    {gap:350},
+    {cls:'ts',text:'fx-8a41c2 \u00b7 validated \u00b7 resolved 3 prior incidents',spd:16},
+    {cls:'ti',text:'  Azure CNI reserves max_pods IPs \u00b7 subnet exhausted',spd:16},
+    {cls:'tt',text:'  412 / 2000 tokens \u00b7 whole body returned',spd:16},
+    {gap:340},
+    {cls:'to',text:'fix applied \u00b7 incident resolved',spd:18},
+    {cls:'tp',text:'\u2192 confirm_fix("fx-8a41c2")',spd:26},
+    {cls:'ts',text:'occurrences: 3 \u2192 4',spd:18},
   ];
   var COLS={'tp':'#00ff88','te':'#ff4d6d','ti':'#00d4ff','tt':'#f59e0b','tc':'#444','to':'#888','ts':'#00ff88','tw':'#f0f0f0'};
 
@@ -1097,113 +1012,20 @@ function typeText(el,text,speed,cb){
 })();
 </script>
 
-<!-- CHANGE IMPACT: BFS-order reveal with score counter + score chips -->
-<script>
-(function(){
-  var section=document.getElementById('impact-section');
-  if(!section)return;
-
-  var waves=[
-    {nodes:['bn-root'],                        edges:[]},
-    {nodes:['bn-2a','bn-2b'],                  edges:['e1a','e1b']},
-    {nodes:['bn-3a','bn-3b','bn-3c'],          edges:['e2a','e2b','e2c','e2d']},
-    {nodes:['bn-4a','bn-4b','bn-4c','bn-4d'],  edges:['e3a','e3b','e3c','e3d','e3e']},
-  ];
-  var badge=document.getElementById('impact-badge');
-  var scoreEl=document.getElementById('impact-score');
-  var chips=document.getElementById('impact-explain');
-
-  function reset(){
-    document.querySelectorAll('.bn').forEach(function(n){n.classList.remove('bv')});
-    document.querySelectorAll('.be').forEach(function(e){e.classList.remove('bd')});
-    if(badge){badge.style.opacity='0';badge.classList.remove('active')}
-    if(scoreEl)scoreEl.textContent='0';
-    if(chips)chips.classList.remove('visible');
-  }
-
-  function countUp(el,end,dur){
-    var start=performance.now();
-    (function tick(now){
-      var p=Math.min((now-start)/dur,1),e=1-Math.pow(1-p,3);
-      el.textContent=Math.round(end*e);
-      if(p<1)requestAnimationFrame(tick);
-    })(start);
-  }
-
-  function play(){
-    reset();
-    var delay=0;
-    waves.forEach(function(wave,wi){
-      setTimeout(function(){
-        wave.edges.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.add('bd')});
-        wave.nodes.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.add('bv')});
-        if(wi===waves.length-1){
-          setTimeout(function(){
-            if(badge){badge.style.opacity='1';setTimeout(function(){badge.classList.add('active')},200)}
-            if(scoreEl)countUp(scoreEl,72,900);
-            // Reveal score chips after counter finishes
-            setTimeout(function(){
-              if(chips)chips.classList.add('visible');
-            },950);
-          },350);
-        }
-      },delay);
-      delay+=620;
-    });
-  }
-
-  var played=false;
-  new IntersectionObserver(function(entries){
-    entries.forEach(function(e){if(e.isIntersecting&&!played){played=true;play()}});
-  },{threshold:0.25}).observe(section);
-
-  var btn=document.getElementById('impact-replay');
-  if(btn){
-    btn.addEventListener('click',play);
-    btn.addEventListener('mouseenter',function(){btn.style.color='#00ff88';btn.style.borderColor='rgba(0,255,136,.3)'});
-    btn.addEventListener('mouseleave',function(){btn.style.color='';btn.style.borderColor=''});
-  }
-})();
-</script>
-
-<!-- ENGINE PROGRESS BARS: animate on scroll enter -->
-<script>
-(function(){
-  var section=document.getElementById('engines');
-  if(!section)return;
-  var played=false;
-  new IntersectionObserver(function(entries){
-    entries.forEach(function(e){
-      if(e.isIntersecting&&!played){
-        played=true;
-        setTimeout(function(){
-          document.querySelectorAll('.engine-progress-bar').forEach(function(bar){
-            var w=bar.getAttribute('data-width');
-            if(w)bar.style.width=w+'%';
-          });
-        },400);
-      }
-    });
-  },{threshold:0.2}).observe(section);
-})();
-</script>
-
 <!-- INSTALL TERMINAL: types on scroll enter -->
 <script>
 (function(){
   var steps=[
     {cls:'tc',text:'# Install FixDoc'},
     {cls:'tp',text:'$ pipx install fixdoc'},
-    {cls:'tc',text:'  # or: pip install fixdoc'},
     {gap:180},
-    {cls:'tc',text:'# Optional: AI features'},
-    {cls:'tp',text:'$ pip install fixdoc[ai]'},
+    {cls:'tc',text:'# Connect your agent (detects Claude Code, Cursor)'},
+    {cls:'tp',text:'$ fixdoc init'},
     {gap:180},
-    {cls:'tc',text:'# Try the interactive demo'},
-    {cls:'tp',text:'$ fixdoc demo tour'},
+    {cls:'tc',text:'# Build the local index'},
+    {cls:'tp',text:'$ fixdoc index'},
     {gap:180},
-    {cls:'tc',text:'# Wrap your first command'},
-    {cls:'tp',text:'$ fixdoc watch -- terraform apply'},
+    {cls:'tc',text:'# Your agent now checks FixDoc before debugging'},
   ];
   var COLS={'tc':'#444','tp':'#00ff88'};
   var section=document.getElementById('get-started');if(!section)return;
@@ -1234,14 +1056,14 @@ function typeText(el,text,speed,cb){
 <!-- CLIPBOARD -->
 <script>
 function copyHeroInstall(el){
-  navigator.clipboard.writeText('pipx install fixdoc && fixdoc demo tour').then(function(){
+  navigator.clipboard.writeText('pipx install fixdoc && fixdoc init').then(function(){
     var orig=el.innerHTML;
     el.innerHTML='<span style="color:var(--green)">$</span> <span>Copied!</span>';
     setTimeout(function(){el.innerHTML=orig},1800);
   });
 }
 function copyFull(btn){
-  navigator.clipboard.writeText('pipx install fixdoc\npip install fixdoc[ai]\nfixdoc demo tour\nfixdoc watch -- terraform apply').then(function(){
+  navigator.clipboard.writeText('pipx install fixdoc\nfixdoc init\nfixdoc index').then(function(){
     btn.textContent='Copied!';btn.style.color='var(--green)';
     setTimeout(function(){btn.textContent='Copy';btn.style.color=''},2000);
   });
