@@ -12,3 +12,4 @@ CLAUDE.md
 test*
 tests/
 .fixdoc-pending
+.fixdoc-test/
