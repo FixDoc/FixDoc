@@ -2,10 +2,12 @@
 
 Derived state, always rebuildable from the markdown. Content-hash per file
 so unchanged entries are never re-embedded; embeddings are versioned by
-model name so a model change wholesale-invalidates the index.
+model name so a model change wholesale-invalidates the index; the schema
+is versioned the same way, so an old index simply rebuilds itself.
 """
 
 import hashlib
+import json
 import re
 import sqlite3
 from array import array
@@ -14,16 +16,14 @@ from pathlib import Path
 
 from .models import TYPE_PREFIXES, Entry
 
-# Entry filenames ARE ids per the spec (fx_7c2a91e4.md); anything else in
-# knowledge/ (README.md, notes) is not ours to parse.
-_ENTRY_FILENAME_RE = re.compile(
-    r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values())
-)
-
 # ponytail: brute-force cosine over all rows; add usearch/hnswlib if stores
 # grow past ~50k entries and search latency actually hurts.
 
-Candidate = namedtuple("Candidate", "id type resource_type")
+# Entry filenames ARE ids per the spec (fx_7c2a91e4.md); anything else in
+# knowledge/ (README.md, notes) is not ours to parse.
+_ENTRY_FILENAME_RE = re.compile(r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values()))
+
+_SCHEMA_VERSION = "2"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -36,10 +36,20 @@ CREATE TABLE IF NOT EXISTS entries (
     title TEXT,
     occurrences INTEGER,
     confidence REAL,
+    created TEXT,
+    env_scope TEXT,
+    match_keys TEXT,
     embedding BLOB
 );
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 """
+
+Candidate = namedtuple("Candidate", "id type resource_type")
+Row = namedtuple(
+    "Row",
+    "id path type status resource_type title occurrences confidence "
+    "created env_scope match_keys vector",
+)
 
 
 class Index:
@@ -50,15 +60,20 @@ class Index:
         self.model_name = model_name
         self.db = sqlite3.connect(str(self.index_dir / "index.db"))
         self.db.executescript(_SCHEMA)
-        row = self.db.execute(
-            "SELECT value FROM meta WHERE key = 'embedding_model'"
-        ).fetchone()
-        if row and row[0] != model_name:
-            self.db.execute("DELETE FROM entries")
-        self.db.execute(
-            "INSERT OR REPLACE INTO meta VALUES ('embedding_model', ?)", (model_name,)
-        )
+        self._invalidate_if("schema_version", _SCHEMA_VERSION, drop_table=True)
+        self._invalidate_if("embedding_model", model_name)
         self.db.commit()
+
+    def _invalidate_if(self, key, expected, drop_table=False):
+        """Wipe indexed entries when a versioned property changed."""
+        row = self.db.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        if row is None or row[0] != expected:
+            if drop_table:
+                self.db.execute("DROP TABLE IF EXISTS entries")
+                self.db.executescript(_SCHEMA)
+            else:
+                self.db.execute("DELETE FROM entries")
+        self.db.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (key, expected))
 
     def sync(self, store_dir):
         """Bring the index up to date with knowledge/. Returns stats dict."""
@@ -85,10 +100,22 @@ class Index:
                     continue
                 vector = array("f", self.embed_fn(entry.search_text()))
                 self.db.execute(
-                    "INSERT OR REPLACE INTO entries VALUES (?,?,?,?,?,?,?,?,?,?)",
-                    (entry.id, rel, content_hash, entry.type, entry.status,
-                     entry.resource_type, entry.title, entry.occurrences,
-                     entry.confidence, vector.tobytes()),
+                    "INSERT OR REPLACE INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        entry.id,
+                        rel,
+                        content_hash,
+                        entry.type,
+                        entry.status,
+                        entry.resource_type,
+                        entry.title,
+                        entry.occurrences,
+                        entry.confidence,
+                        entry.created,
+                        json.dumps(entry.env_scope),
+                        json.dumps(entry.match_keys),
+                        vector.tobytes(),
+                    ),
                 )
                 stats["updated" if rel in known else "added"] += 1
         for rel in set(known) - seen:
@@ -104,6 +131,23 @@ class Index:
             "WHERE type = ? AND status NOT IN ('deprecated', 'rejected')",
             (entry_type,),
         ).fetchall()
+        return [(Candidate(r[0], r[1], r[2]), list(array("f", r[3]))) for r in rows]
+
+    def live(self, entry_type=None, include_quarantined=False):
+        """Full rows for retrieval: validated (optionally + quarantined) entries."""
+        statuses = ["validated"] + (["quarantined"] if include_quarantined else [])
+        sql = (
+            "SELECT id, path, type, status, resource_type, title, occurrences, "
+            "confidence, created, env_scope, match_keys, embedding FROM entries "
+            "WHERE status IN (%s)" % ",".join("?" * len(statuses))
+        )
+        params = list(statuses)
+        if entry_type:
+            sql += " AND type = ?"
+            params.append(entry_type)
         return [
-            (Candidate(r[0], r[1], r[2]), list(array("f", r[3]))) for r in rows
+            Row(
+                *r[:9], json.loads(r[9] or "[]"), json.loads(r[10] or "{}"), list(array("f", r[11]))
+            )
+            for r in self.db.execute(sql, params).fetchall()
         ]

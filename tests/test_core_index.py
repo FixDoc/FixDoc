@@ -25,9 +25,15 @@ def write_entry(store_dir, entry, namespace="platform"):
 
 def make_fix(entry_id="fx_00000001", title="Pods stuck Pending", **overrides):
     fields = dict(
-        id=entry_id, type="fix", title=title,
-        sections={"Symptom": "Pods pending.", "Root cause": "Race.",
-                  "Fix": "Restart autoscaler.", "Verification": "Pods Running."},
+        id=entry_id,
+        type="fix",
+        title=title,
+        sections={
+            "Symptom": "Pods pending.",
+            "Root cause": "Race.",
+            "Fix": "Restart autoscaler.",
+            "Verification": "Pods Running.",
+        },
         resource_type="kubernetes/aks",
     )
     fields.update(overrides)
@@ -124,8 +130,12 @@ class TestCandidates:
     def test_filters_by_type(self, tmp_path):
         store = tmp_path / "knowledge"
         write_entry(store, make_fix())
-        insight = Entry(id="in_00000001", type="insight", title="Shared NAT",
-                        sections={"Context": "Same egress IP."})
+        insight = Entry(
+            id="in_00000001",
+            type="insight",
+            title="Shared NAT",
+            sections={"Context": "Same egress IP."},
+        )
         write_entry(store, insight)
         index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
         index.sync(store)
@@ -148,7 +158,7 @@ class TestCandidates:
         write_entry(store, make_fix())
         index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
         index.sync(store)
-        (candidate, vector), = index.candidates("fix")
+        ((candidate, vector),) = index.candidates("fix")
         assert candidate.id == "fx_00000001"
         assert candidate.type == "fix"
         assert candidate.resource_type == "kubernetes/aks"
@@ -166,3 +176,60 @@ class TestCandidates:
         decision = dedup_check(incoming, index.candidates("fix"), embed)
         assert decision.band == "duplicate"
         assert decision.matched_id == "fx_00000001"
+
+
+class TestSchemaHeal:
+    def test_old_schema_index_rebuilds_itself(self, tmp_path):
+        import sqlite3
+
+        idx_dir = tmp_path / "idx"
+        idx_dir.mkdir()
+        db = sqlite3.connect(str(idx_dir / "index.db"))
+        db.execute("CREATE TABLE entries (id TEXT PRIMARY KEY, junk TEXT)")
+        db.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
+        db.execute("INSERT INTO meta VALUES ('embedding_model', 'test-model')")
+        db.execute("INSERT INTO entries VALUES ('fx_old00001', 'stale')")
+        db.commit()
+        db.close()
+        index = Index(idx_dir, CountingEmbed(), "test-model")
+        assert index.candidates("fix") == []
+        store = tmp_path / "knowledge"
+        write_entry(store, make_fix())
+        assert index.sync(store)["added"] == 1
+
+
+class TestLive:
+    def test_row_carries_retrieval_fields(self, tmp_path):
+        store = tmp_path / "knowledge"
+        write_entry(
+            store,
+            make_fix(
+                status="validated",
+                occurrences=3,
+                confidence=0.9,
+                created="2026-08-14",
+                env_scope=["prod"],
+                match_keys={"error_class": "FailedScheduling"},
+            ),
+        )
+        index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
+        index.sync(store)
+        (row,) = index.live()
+        assert row.id == "fx_00000001"
+        assert row.status == "validated"
+        assert row.created == "2026-08-14"
+        assert row.env_scope == ["prod"]
+        assert row.match_keys == {"error_class": "FailedScheduling"}
+        assert row.path == "platform/fx_00000001.md"
+        assert len(row.vector) == 2
+
+    def test_live_defaults_to_validated_only(self, tmp_path):
+        store = tmp_path / "knowledge"
+        write_entry(store, make_fix("fx_00000001", status="validated"))
+        write_entry(store, make_fix("fx_00000002", status="quarantined"))
+        write_entry(store, make_fix("fx_00000003", status="deprecated"))
+        index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
+        index.sync(store)
+        assert [r.id for r in index.live()] == ["fx_00000001"]
+        with_quarantined = sorted(r.id for r in index.live(include_quarantined=True))
+        assert with_quarantined == ["fx_00000001", "fx_00000002"]

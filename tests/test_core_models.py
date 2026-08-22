@@ -48,9 +48,15 @@ class TestNewId:
 
 class TestRoundTrip:
     def test_fix_round_trip_preserves_everything(self):
-        entry = make_fix(status="validated", confidence=0.87, occurrences=3,
-                         validated_by="fiyi", supersedes="fx_19bb02a1",
-                         related=["fx_88d1c2aa"], created="2026-08-14")
+        entry = make_fix(
+            status="validated",
+            confidence=0.87,
+            occurrences=3,
+            validated_by="fiyi",
+            supersedes="fx_19bb02a1",
+            related=["fx_88d1c2aa"],
+            created="2026-08-14",
+        )
         parsed = Entry.from_markdown(entry.to_markdown())
         assert parsed == entry
 
@@ -126,10 +132,14 @@ class TestSearchAndReturnText:
 
     def test_playbook_search_text_uses_when_to_use(self):
         entry = Entry(
-            id="pb_ab12cd34", type="playbook", title="Rotate AKS node certs",
-            sections={"When to use": "Cert expiry alerts firing.",
-                      "Steps": "1. az aks rotate-certs",
-                      "Verification": "Nodes Ready."},
+            id="pb_ab12cd34",
+            type="playbook",
+            title="Rotate AKS node certs",
+            sections={
+                "When to use": "Cert expiry alerts firing.",
+                "Steps": "1. az aks rotate-certs",
+                "Verification": "Nodes Ready.",
+            },
         )
         assert "Cert expiry alerts firing." in entry.search_text()
         assert "az aks rotate-certs" not in entry.search_text()
@@ -137,7 +147,9 @@ class TestSearchAndReturnText:
 
     def test_insight_search_and_return_are_body(self):
         entry = Entry(
-            id="in_ab12cd34", type="insight", title="Shared NAT",
+            id="in_ab12cd34",
+            type="insight",
+            title="Shared NAT",
             sections={"Context": "Same egress IP everywhere."},
         )
         assert "Same egress IP everywhere." in entry.search_text()
