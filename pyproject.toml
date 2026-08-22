@@ -37,6 +37,9 @@ dependencies = [
 fixdoc = "fixdoc.fix:main"
 
 [project.optional-dependencies]
+embed = [
+    "fastembed>=0.3.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
