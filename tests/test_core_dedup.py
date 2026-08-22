@@ -4,17 +4,27 @@ from fixdoc.core.dedup import DedupDecision, dedup_check
 from fixdoc.core.models import Entry
 
 
-def make_entry(entry_id="fx_00000001", entry_type="fix", resource_type="kubernetes/aks"):
+def make_entry(
+    entry_id="fx_00000001", entry_type="fix", resource_type="kubernetes/aks"
+):
     sections = {
         "fix": {"Symptom": "s", "Root cause": "r", "Fix": "f", "Verification": "v"},
         "playbook": {"When to use": "w", "Steps": "s", "Verification": "v"},
         "insight": {"Context": "c"},
     }[entry_type]
-    return Entry(id=entry_id, type=entry_type, title="t",
-                 sections=sections, resource_type=resource_type)
+    return Entry(
+        id=entry_id,
+        type=entry_type,
+        title="t",
+        sections=sections,
+        resource_type=resource_type,
+    )
 
 
-CONST_EMBED = lambda text: [1.0, 0.0]  # noqa: E731 — incoming entry always embeds to x-axis
+CONST_EMBED = lambda text: [
+    1.0,
+    0.0,
+]  # noqa: E731 — incoming entry always embeds to x-axis
 
 
 def vec(cosine_with_x):
@@ -49,11 +59,21 @@ class TestBands:
     def test_boundaries_are_inclusive(self):
         cand = make_entry("fx_00000002")
         # 0.25/0.75 chosen because they are exact in binary floating point
-        at_dup = dedup_check(make_entry(), [(cand, vec(0.75))], CONST_EMBED,
-                             duplicate_threshold=0.75, related_threshold=0.25)
+        at_dup = dedup_check(
+            make_entry(),
+            [(cand, vec(0.75))],
+            CONST_EMBED,
+            duplicate_threshold=0.75,
+            related_threshold=0.25,
+        )
         assert at_dup.band == "duplicate"
-        at_rel = dedup_check(make_entry(), [(cand, vec(0.25))], CONST_EMBED,
-                             duplicate_threshold=0.75, related_threshold=0.25)
+        at_rel = dedup_check(
+            make_entry(),
+            [(cand, vec(0.25))],
+            CONST_EMBED,
+            duplicate_threshold=0.75,
+            related_threshold=0.25,
+        )
         assert at_rel.band == "related"
 
 
@@ -77,8 +97,9 @@ class TestScoping:
 
     def test_entry_without_resource_type_compares_against_all(self):
         cand = make_entry("fx_00000002")
-        decision = dedup_check(make_entry(resource_type=None),
-                               [(cand, vec(0.95))], CONST_EMBED)
+        decision = dedup_check(
+            make_entry(resource_type=None), [(cand, vec(0.95))], CONST_EMBED
+        )
         assert decision.band == "duplicate"
 
 
@@ -86,7 +107,8 @@ class TestBestMatch:
     def test_best_of_several_wins(self):
         near = make_entry("fx_00000002")
         far = make_entry("fx_00000003")
-        decision = dedup_check(make_entry(),
-                               [(far, vec(0.80)), (near, vec(0.95))], CONST_EMBED)
+        decision = dedup_check(
+            make_entry(), [(far, vec(0.80)), (near, vec(0.95))], CONST_EMBED
+        )
         assert decision.band == "duplicate"
         assert decision.matched_id == "fx_00000002"

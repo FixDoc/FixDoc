@@ -63,14 +63,25 @@ def _trust(occurrences, confidence):
     return 0.5 * proven + 0.5 * judged
 
 
-def search(index, store_dir, query, *, entry_type=None, resource_type=None,
-           env=None, match_keys=None, token_budget=2000, limit=5,
-           include_quarantined=False):
+def search(
+    index,
+    store_dir,
+    query,
+    *,
+    entry_type=None,
+    resource_type=None,
+    env=None,
+    match_keys=None,
+    token_budget=2000,
+    limit=5,
+    include_quarantined=False,
+):
     """Ranked, token-budgeted results. Bodies come whole or not at all."""
     query_vector = index.embed_fn(query)
     scored = []
-    for row in index.live(entry_type=entry_type,
-                          include_quarantined=include_quarantined):
+    for row in index.live(
+        entry_type=entry_type, include_quarantined=include_quarantined
+    ):
         if resource_type and row.resource_type and row.resource_type != resource_type:
             continue
         if env and row.env_scope and env not in row.env_scope:
@@ -89,18 +100,37 @@ def search(index, store_dir, query, *, entry_type=None, resource_type=None,
     remaining = token_budget
     for rank, (score, similarity, row) in enumerate(scored[:limit]):
         entry = Entry.from_markdown((Path(store_dir) / row.path).read_text())
-        full = entry.title + "\n\n" + "\n\n".join(
-            f"## {name}\n\n{text}" for name, text in entry.sections.items()
+        full = (
+            entry.title
+            + "\n\n"
+            + "\n\n".join(
+                f"## {name}\n\n{text}" for name, text in entry.sections.items()
+            )
         )
         summary = entry.title + "\n\n" + entry.return_text()
-        levels = [("full", full), ("summary", summary)] if rank == 0 else [("summary", summary)]
+        levels = (
+            [("full", full), ("summary", summary)]
+            if rank == 0
+            else [("summary", summary)]
+        )
         detail, content = "title", ""  # beyond-budget results still list title+id
         for level, text in levels:
             if _tokens(text) <= remaining:
                 detail, content = level, text
                 break
         remaining -= _tokens(content)
-        results.append(Retrieved(row.id, row.type, row.title, row.status,
-                                 row.occurrences, row.confidence, similarity,
-                                 score, detail, content))
+        results.append(
+            Retrieved(
+                row.id,
+                row.type,
+                row.title,
+                row.status,
+                row.occurrences,
+                row.confidence,
+                similarity,
+                score,
+                detail,
+                content,
+            )
+        )
     return results

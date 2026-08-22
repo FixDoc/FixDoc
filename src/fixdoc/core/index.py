@@ -103,11 +103,21 @@ class Index:
                 vector = array("f", self.embed_fn(entry.search_text()))
                 self.db.execute(
                     "INSERT OR REPLACE INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (entry.id, rel, content_hash, entry.type, entry.status,
-                     entry.resource_type, entry.title, entry.occurrences,
-                     entry.confidence, entry.created,
-                     json.dumps(entry.env_scope), json.dumps(entry.match_keys),
-                     vector.tobytes()),
+                    (
+                        entry.id,
+                        rel,
+                        content_hash,
+                        entry.type,
+                        entry.status,
+                        entry.resource_type,
+                        entry.title,
+                        entry.occurrences,
+                        entry.confidence,
+                        entry.created,
+                        json.dumps(entry.env_scope),
+                        json.dumps(entry.match_keys),
+                        vector.tobytes(),
+                    ),
                 )
                 stats["updated" if rel in known else "added"] += 1
         for rel in set(known) - seen:
@@ -123,9 +133,7 @@ class Index:
             "WHERE type = ? AND status NOT IN ('deprecated', 'rejected')",
             (entry_type,),
         ).fetchall()
-        return [
-            (Candidate(r[0], r[1], r[2]), list(array("f", r[3]))) for r in rows
-        ]
+        return [(Candidate(r[0], r[1], r[2]), list(array("f", r[3]))) for r in rows]
 
     def live(self, entry_type=None, include_quarantined=False):
         """Full rows for retrieval: validated (optionally + quarantined) entries."""
@@ -140,7 +148,11 @@ class Index:
             sql += " AND type = ?"
             params.append(entry_type)
         return [
-            Row(*r[:9], json.loads(r[9] or "[]"), json.loads(r[10] or "{}"),
-                list(array("f", r[11])))
+            Row(
+                *r[:9],
+                json.loads(r[9] or "[]"),
+                json.loads(r[10] or "{}"),
+                list(array("f", r[11])),
+            )
             for r in self.db.execute(sql, params).fetchall()
         ]

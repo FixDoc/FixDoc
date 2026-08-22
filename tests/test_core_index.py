@@ -25,9 +25,15 @@ def write_entry(store_dir, entry, namespace="platform"):
 
 def make_fix(entry_id="fx_00000001", title="Pods stuck Pending", **overrides):
     fields = dict(
-        id=entry_id, type="fix", title=title,
-        sections={"Symptom": "Pods pending.", "Root cause": "Race.",
-                  "Fix": "Restart autoscaler.", "Verification": "Pods Running."},
+        id=entry_id,
+        type="fix",
+        title=title,
+        sections={
+            "Symptom": "Pods pending.",
+            "Root cause": "Race.",
+            "Fix": "Restart autoscaler.",
+            "Verification": "Pods Running.",
+        },
         resource_type="kubernetes/aks",
     )
     fields.update(overrides)
@@ -124,8 +130,12 @@ class TestCandidates:
     def test_filters_by_type(self, tmp_path):
         store = tmp_path / "knowledge"
         write_entry(store, make_fix())
-        insight = Entry(id="in_00000001", type="insight", title="Shared NAT",
-                        sections={"Context": "Same egress IP."})
+        insight = Entry(
+            id="in_00000001",
+            type="insight",
+            title="Shared NAT",
+            sections={"Context": "Same egress IP."},
+        )
         write_entry(store, insight)
         index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
         index.sync(store)
@@ -148,7 +158,7 @@ class TestCandidates:
         write_entry(store, make_fix())
         index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
         index.sync(store)
-        (candidate, vector), = index.candidates("fix")
+        ((candidate, vector),) = index.candidates("fix")
         assert candidate.id == "fx_00000001"
         assert candidate.type == "fix"
         assert candidate.resource_type == "kubernetes/aks"
@@ -191,9 +201,17 @@ class TestSchemaHeal:
 class TestLive:
     def test_row_carries_retrieval_fields(self, tmp_path):
         store = tmp_path / "knowledge"
-        write_entry(store, make_fix(status="validated", occurrences=3, confidence=0.9,
-                                    created="2026-08-14", env_scope=["prod"],
-                                    match_keys={"error_class": "FailedScheduling"}))
+        write_entry(
+            store,
+            make_fix(
+                status="validated",
+                occurrences=3,
+                confidence=0.9,
+                created="2026-08-14",
+                env_scope=["prod"],
+                match_keys={"error_class": "FailedScheduling"},
+            ),
+        )
         index = Index(tmp_path / "idx", CountingEmbed(), "test-model")
         index.sync(store)
         (row,) = index.live()

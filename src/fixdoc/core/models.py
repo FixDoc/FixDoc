@@ -22,7 +22,11 @@ REQUIRED_SECTIONS = {
 
 # Search-by vs. return split: queries look like symptoms, so embed the
 # situation, return the answer.
-SEARCH_SECTIONS = {"fix": ["Symptom"], "playbook": ["When to use"], "insight": ["Context"]}
+SEARCH_SECTIONS = {
+    "fix": ["Symptom"],
+    "playbook": ["When to use"],
+    "insight": ["Context"],
+}
 RETURN_SECTIONS = {
     "fix": ["Fix", "Verification"],
     "playbook": ["Steps", "Verification"],
@@ -58,7 +62,9 @@ class Entry:
     severity: Optional[str] = None  # fix only
 
     def search_text(self) -> str:
-        parts = [self.title] + [self.sections.get(s, "") for s in SEARCH_SECTIONS[self.type]]
+        parts = [self.title] + [
+            self.sections.get(s, "") for s in SEARCH_SECTIONS[self.type]
+        ]
         return "\n".join(p for p in parts if p)
 
     def return_text(self) -> str:
@@ -71,14 +77,21 @@ class Entry:
         problems = []
         prefix = TYPE_PREFIXES[self.type] + "_"
         if not self.id.startswith(prefix):
-            problems.append(f"id {self.id!r} should start with {prefix!r} for type {self.type}")
+            problems.append(
+                f"id {self.id!r} should start with {prefix!r} for type {self.type}"
+            )
         for name in REQUIRED_SECTIONS[self.type]:
             if not self.sections.get(name, "").strip():
                 problems.append(f"missing required section: {name}")
         return problems
 
     def to_markdown(self) -> str:
-        front = {"id": self.id, "type": self.type, "title": self.title, "status": self.status}
+        front = {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "status": self.status,
+        }
         if self.confidence is not None:
             front["confidence"] = self.confidence
         front["occurrences"] = self.occurrences
@@ -96,7 +109,9 @@ class Entry:
         if self.severity:
             front["severity"] = self.severity
         yaml_text = yaml.safe_dump(front, sort_keys=False, allow_unicode=True).strip()
-        body = "\n\n".join(f"## {name}\n\n{text.strip()}" for name, text in self.sections.items())
+        body = "\n\n".join(
+            f"## {name}\n\n{text.strip()}" for name, text in self.sections.items()
+        )
         return f"---\n{yaml_text}\n---\n\n{body}\n"
 
     @classmethod
