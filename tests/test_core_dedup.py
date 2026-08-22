@@ -21,10 +21,9 @@ def make_entry(
     )
 
 
-CONST_EMBED = lambda text: [
-    1.0,
-    0.0,
-]  # noqa: E731 — incoming entry always embeds to x-axis
+def const_embed(text):
+    """Incoming entry always embeds to the x-axis."""
+    return [1.0, 0.0]
 
 
 def vec(cosine_with_x):
@@ -34,25 +33,25 @@ def vec(cosine_with_x):
 
 class TestBands:
     def test_no_candidates_is_distinct(self):
-        decision = dedup_check(make_entry(), [], CONST_EMBED)
+        decision = dedup_check(make_entry(), [], const_embed)
         assert decision == DedupDecision("distinct", None, 0.0)
 
     def test_high_similarity_is_duplicate(self):
         cand = make_entry("fx_00000002")
-        decision = dedup_check(make_entry(), [(cand, vec(0.95))], CONST_EMBED)
+        decision = dedup_check(make_entry(), [(cand, vec(0.95))], const_embed)
         assert decision.band == "duplicate"
         assert decision.matched_id == "fx_00000002"
         assert decision.similarity > 0.92
 
     def test_middle_band_is_related(self):
         cand = make_entry("fx_00000002")
-        decision = dedup_check(make_entry(), [(cand, vec(0.85))], CONST_EMBED)
+        decision = dedup_check(make_entry(), [(cand, vec(0.85))], const_embed)
         assert decision.band == "related"
         assert decision.matched_id == "fx_00000002"
 
     def test_low_similarity_is_distinct_but_reports_best(self):
         cand = make_entry("fx_00000002")
-        decision = dedup_check(make_entry(), [(cand, vec(0.3))], CONST_EMBED)
+        decision = dedup_check(make_entry(), [(cand, vec(0.3))], const_embed)
         assert decision.band == "distinct"
         assert decision.matched_id == "fx_00000002"  # near-miss kept for events log
 
@@ -62,7 +61,7 @@ class TestBands:
         at_dup = dedup_check(
             make_entry(),
             [(cand, vec(0.75))],
-            CONST_EMBED,
+            const_embed,
             duplicate_threshold=0.75,
             related_threshold=0.25,
         )
@@ -70,7 +69,7 @@ class TestBands:
         at_rel = dedup_check(
             make_entry(),
             [(cand, vec(0.25))],
-            CONST_EMBED,
+            const_embed,
             duplicate_threshold=0.75,
             related_threshold=0.25,
         )
@@ -80,25 +79,25 @@ class TestBands:
 class TestScoping:
     def test_other_type_excluded(self):
         cand = make_entry("in_00000002", entry_type="insight")
-        decision = dedup_check(make_entry(), [(cand, vec(0.99))], CONST_EMBED)
+        decision = dedup_check(make_entry(), [(cand, vec(0.99))], const_embed)
         assert decision.band == "distinct"
         assert decision.matched_id is None
 
     def test_other_resource_type_excluded(self):
         cand = make_entry("fx_00000002", resource_type="databricks/jobs")
-        decision = dedup_check(make_entry(), [(cand, vec(0.99))], CONST_EMBED)
+        decision = dedup_check(make_entry(), [(cand, vec(0.99))], const_embed)
         assert decision.band == "distinct"
         assert decision.matched_id is None
 
     def test_candidate_without_resource_type_still_compared(self):
         cand = make_entry("fx_00000002", resource_type=None)
-        decision = dedup_check(make_entry(), [(cand, vec(0.95))], CONST_EMBED)
+        decision = dedup_check(make_entry(), [(cand, vec(0.95))], const_embed)
         assert decision.band == "duplicate"
 
     def test_entry_without_resource_type_compares_against_all(self):
         cand = make_entry("fx_00000002")
         decision = dedup_check(
-            make_entry(resource_type=None), [(cand, vec(0.95))], CONST_EMBED
+            make_entry(resource_type=None), [(cand, vec(0.95))], const_embed
         )
         assert decision.band == "duplicate"
 
@@ -108,7 +107,7 @@ class TestBestMatch:
         near = make_entry("fx_00000002")
         far = make_entry("fx_00000003")
         decision = dedup_check(
-            make_entry(), [(far, vec(0.80)), (near, vec(0.95))], CONST_EMBED
+            make_entry(), [(far, vec(0.80)), (near, vec(0.95))], const_embed
         )
         assert decision.band == "duplicate"
         assert decision.matched_id == "fx_00000002"
