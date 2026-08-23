@@ -55,11 +55,9 @@ class FixRepository:
 
     def save(self, fix: Fix) -> Fix:
         """Save a fix to the database and generate markdown."""
-        fixes = self._read_db()        
+        fixes = self._read_db()
 
-        existing_idx = next(
-            (i for i, f in enumerate(fixes) if f.get("id") == fix.id), None
-        )
+        existing_idx = next((i for i, f in enumerate(fixes) if f.get("id") == fix.id), None)
 
         if existing_idx is not None:
             fixes[existing_idx] = fix.to_dict()
@@ -71,7 +69,7 @@ class FixRepository:
         return fix
 
     def get(self, fix_id: str) -> Optional[Fix]:
-        """Retrieve a fix by ID """
+        """Retrieve a fix by ID"""
         fixes = self._read_db()
         fix_id_lower = fix_id.lower()
 

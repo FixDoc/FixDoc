@@ -64,5 +64,5 @@ def stats(ctx):
     if tag_counts:
         click.echo("\n  Top tags:")
         sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
-        for tag, count in sorted_tags[:config.display.top_tags_limit]:
+        for tag, count in sorted_tags[: config.display.top_tags_limit]:
             click.echo(f"    {tag}: {count}")

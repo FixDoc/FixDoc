@@ -204,6 +204,7 @@ class TestSourceErrorIdsMarkdown:
 
     def test_source_error_ids_markdown_roundtrip(self):
         from fixdoc.formatter import fix_to_markdown
+
         fix = Fix(
             issue="AccessDenied",
             resolution="Added binding",
@@ -233,6 +234,7 @@ Test resolution
 
     def test_multiple_source_error_ids(self):
         from fixdoc.formatter import fix_to_markdown
+
         fix = Fix(
             issue="Multiple errors",
             resolution="Fixed them all",
@@ -254,6 +256,7 @@ class TestMemoryTypeMarkdown:
     def test_memory_type_roundtrip_non_fix(self):
         """Non-fix memory_type round-trips through markdown."""
         from fixdoc.formatter import fix_to_markdown
+
         fix = Fix(
             issue="Deployment failed",
             resolution="1. Stop\n2. Update\n3. Restart",
@@ -285,6 +288,7 @@ Test resolution
     def test_memory_type_fix_not_emitted_in_markdown(self):
         """Fix type (default) should NOT emit Memory Type line."""
         from fixdoc.formatter import fix_to_markdown
+
         fix = Fix(
             issue="Access denied",
             resolution="Added IAM binding",
@@ -295,6 +299,7 @@ Test resolution
 
     def test_memory_type_check_roundtrip(self):
         from fixdoc.formatter import fix_to_markdown
+
         fix = Fix(
             issue="SG misconfigured",
             resolution="Verify the ingress rules",
@@ -306,6 +311,7 @@ Test resolution
 
     def test_memory_type_insight_roundtrip(self):
         from fixdoc.formatter import fix_to_markdown
+
         fix = Fix(
             issue="Provider drift",
             resolution="Root cause was stale lock file",

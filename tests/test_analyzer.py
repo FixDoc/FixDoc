@@ -23,13 +23,13 @@ def sample_plan(tmp_path):
             {
                 "address": "azurerm_storage_account.main",
                 "type": "azurerm_storage_account",
-                "change": {"actions": ["create"]}
+                "change": {"actions": ["create"]},
             },
             {
                 "address": "azurerm_key_vault.main",
                 "type": "azurerm_key_vault",
-                "change": {"actions": ["create"]}
-            }
+                "change": {"actions": ["create"]},
+            },
         ]
     }
 
@@ -48,17 +48,17 @@ def mixed_plan(tmp_path):
             {
                 "address": "azurerm_storage_account.main",
                 "type": "azurerm_storage_account",
-                "change": {"actions": ["create"]}
+                "change": {"actions": ["create"]},
             },
             {
                 "address": "azurerm_key_vault.main",
                 "type": "azurerm_key_vault",
-                "change": {"actions": ["no-op"]}
+                "change": {"actions": ["no-op"]},
             },
             {
                 "address": "azurerm_resource_group.main",
                 "type": "azurerm_resource_group",
-                "change": {"actions": ["no-op"]}
+                "change": {"actions": ["no-op"]},
             },
         ]
     }
@@ -107,7 +107,7 @@ class TestTerraformAnalyzer:
         fix = Fix(
             issue="Users couldn't access storage",
             resolution="Added blob contributor role",
-            tags="azurerm_storage_account,rbac"
+            tags="azurerm_storage_account,rbac",
         )
         temp_repo.save(fix)
 
@@ -119,16 +119,8 @@ class TestTerraformAnalyzer:
         assert matches[0].related_fix.id == fix.id
 
     def test_analyze_multiple_matches(self, sample_plan, temp_repo):
-        fix1 = Fix(
-            issue="Storage issue",
-            resolution="Fixed",
-            tags="azurerm_storage_account"
-        )
-        fix2 = Fix(
-            issue="Key vault issue",
-            resolution="Fixed",
-            tags="azurerm_key_vault"
-        )
+        fix1 = Fix(issue="Storage issue", resolution="Fixed", tags="azurerm_storage_account")
+        fix2 = Fix(issue="Key vault issue", resolution="Fixed", tags="azurerm_key_vault")
         temp_repo.save(fix1)
         temp_repo.save(fix2)
 
@@ -139,11 +131,7 @@ class TestTerraformAnalyzer:
 
     def test_analyze_skips_no_op_resources(self, mixed_plan, temp_repo):
         """Analyze should not match against no-op resources."""
-        fix = Fix(
-            issue="Key vault issue",
-            resolution="Fixed",
-            tags="azurerm_key_vault"
-        )
+        fix = Fix(issue="Key vault issue", resolution="Fixed", tags="azurerm_key_vault")
         temp_repo.save(fix)
 
         analyzer = TerraformAnalyzer(repo=temp_repo)
@@ -162,7 +150,7 @@ class TestTerraformAnalyzer:
         fix = Fix(
             issue="Storage access denied",
             resolution="Added contributor role",
-            tags="azurerm_storage_account"
+            tags="azurerm_storage_account",
         )
         temp_repo.save(fix)
 
@@ -180,7 +168,7 @@ class TestTerraformAnalyzer:
                 {
                     "address": "aws_s3_bucket.data",
                     "type": "aws_s3_bucket",
-                    "change": {"actions": ["create", "delete"]}
+                    "change": {"actions": ["create", "delete"]},
                 }
             ]
         }
@@ -201,14 +189,14 @@ class TestAnalysisMatch:
         fix = Fix(
             issue="Users couldn't access blob storage",
             resolution="Added storage blob data contributor role",
-            tags="azurerm_storage_account,rbac"
+            tags="azurerm_storage_account,rbac",
         )
         temp_repo.save(fix)
 
         match = AnalysisMatch(
             resource_address="azurerm_storage_account.main",
             resource_type="azurerm_storage_account",
-            related_fix=fix
+            related_fix=fix,
         )
 
         warning = match.format_warning()

@@ -81,9 +81,7 @@ class SyncEngine:
         changed = []
         for fix in pushable:
             current_md = fix_to_markdown(fix)
-            committed_md = self.git.get_file_content_at_ref(
-                f"docs/{fix.id}.md", "HEAD"
-            )
+            committed_md = self.git.get_file_content_at_ref(f"docs/{fix.id}.md", "HEAD")
             if committed_md is None or committed_md != current_md:
                 changed.append(fix)
 
@@ -241,9 +239,7 @@ class SyncEngine:
 
         return updated_ids
 
-    def resolve_conflict(
-        self, conflict: SyncConflict, resolution: str
-    ) -> Optional[Fix]:
+    def resolve_conflict(self, conflict: SyncConflict, resolution: str) -> Optional[Fix]:
         """
         Resolve a conflict based on user choice:
         - 'local': Keep local version

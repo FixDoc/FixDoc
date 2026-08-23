@@ -28,13 +28,22 @@ from .models import Fix
 CHANGE_DOMAINS = {
     "iam_trust_boundary": {
         "attributes": {
-            "assume_role_policy", "policy", "inline_policy",
-            "managed_policy_arns", "policy_arn", "role",
-            "iam_role", "service_role", "execution_role_arn",
-            "task_role_arn", "role_arn",
+            "assume_role_policy",
+            "policy",
+            "inline_policy",
+            "managed_policy_arns",
+            "policy_arn",
+            "role",
+            "iam_role",
+            "service_role",
+            "execution_role_arn",
+            "task_role_arn",
+            "role_arn",
         },
         "resource_families": {
-            "aws_iam", "azurerm_role", "google_project_iam",
+            "aws_iam",
+            "azurerm_role",
+            "google_project_iam",
             "google_service_account",
         },
         "score": 85,
@@ -42,68 +51,110 @@ CHANGE_DOMAINS = {
     },
     "secret_access": {
         "attributes": {
-            "secret", "secret_string", "secret_binary",
-            "kms_key_id", "kms_key_arn", "ssm_parameter",
-            "secret_id", "secret_version", "password",
-            "master_password", "admin_password",
+            "secret",
+            "secret_string",
+            "secret_binary",
+            "kms_key_id",
+            "kms_key_arn",
+            "ssm_parameter",
+            "secret_id",
+            "secret_version",
+            "password",
+            "master_password",
+            "admin_password",
         },
         "resource_families": {
-            "aws_secretsmanager", "aws_ssm_parameter", "aws_kms",
-            "azurerm_key_vault", "google_secret_manager",
+            "aws_secretsmanager",
+            "aws_ssm_parameter",
+            "aws_kms",
+            "azurerm_key_vault",
+            "google_secret_manager",
         },
         "score": 85,
         "risk_label": "secret / vault access",
     },
     "network_perimeter": {
         "attributes": {
-            "ingress", "egress", "cidr_blocks", "cidr_block",
-            "security_groups", "from_port", "to_port", "protocol",
-            "source_security_group_id", "prefix_list_ids",
-            "ipv6_cidr_blocks", "self",
+            "ingress",
+            "egress",
+            "cidr_blocks",
+            "cidr_block",
+            "security_groups",
+            "from_port",
+            "to_port",
+            "protocol",
+            "source_security_group_id",
+            "prefix_list_ids",
+            "ipv6_cidr_blocks",
+            "self",
         },
         "resource_families": {
-            "aws_security_group", "aws_network_acl",
-            "azurerm_network_security", "google_compute_firewall",
+            "aws_security_group",
+            "aws_network_acl",
+            "azurerm_network_security",
+            "google_compute_firewall",
         },
         "score": 80,
         "risk_label": "network perimeter / firewall rules",
     },
     "network_routing": {
         "attributes": {
-            "route", "route_table_id", "destination_cidr_block",
-            "gateway_id", "nat_gateway_id", "transit_gateway_id",
-            "vpc_peering_connection_id", "network_interface_id",
+            "route",
+            "route_table_id",
+            "destination_cidr_block",
+            "gateway_id",
+            "nat_gateway_id",
+            "transit_gateway_id",
+            "vpc_peering_connection_id",
+            "network_interface_id",
         },
         "resource_families": {
-            "aws_route", "aws_route_table", "aws_vpc_peering",
-            "aws_transit_gateway", "aws_nat_gateway",
-            "azurerm_route", "google_compute_route",
+            "aws_route",
+            "aws_route_table",
+            "aws_vpc_peering",
+            "aws_transit_gateway",
+            "aws_nat_gateway",
+            "azurerm_route",
+            "google_compute_route",
         },
         "score": 80,
         "risk_label": "network routing / peering",
     },
     "rbac_binding": {
         "attributes": {
-            "role_ref", "subjects", "role_binding",
-            "cluster_role", "service_account_name",
-            "scope_id", "principal_id", "role_definition_id",
+            "role_ref",
+            "subjects",
+            "role_binding",
+            "cluster_role",
+            "service_account_name",
+            "scope_id",
+            "principal_id",
+            "role_definition_id",
         },
         "resource_families": {
-            "kubernetes_role", "kubernetes_cluster_role",
-            "azurerm_role_assignment", "azurerm_role_definition",
+            "kubernetes_role",
+            "kubernetes_cluster_role",
+            "azurerm_role_assignment",
+            "azurerm_role_definition",
         },
         "score": 80,
         "risk_label": "RBAC / role binding",
     },
     "encryption_keying": {
         "attributes": {
-            "kms_key_id", "encrypted", "kms_key_arn",
-            "server_side_encryption", "sse_algorithm",
-            "key_id", "key_arn", "encryption_configuration",
+            "kms_key_id",
+            "encrypted",
+            "kms_key_arn",
+            "server_side_encryption",
+            "sse_algorithm",
+            "key_id",
+            "key_arn",
+            "encryption_configuration",
             "at_rest_encryption_enabled",
         },
         "resource_families": {
-            "aws_kms", "azurerm_key_vault_key",
+            "aws_kms",
+            "azurerm_key_vault_key",
             "google_kms",
         },
         "score": 80,
@@ -111,13 +162,21 @@ CHANGE_DOMAINS = {
     },
     "network_attachment": {
         "attributes": {
-            "subnet_id", "subnet_ids", "vpc_id",
-            "network_interface_id", "availability_zone",
-            "associate_public_ip_address", "private_ip",
+            "subnet_id",
+            "subnet_ids",
+            "vpc_id",
+            "network_interface_id",
+            "availability_zone",
+            "associate_public_ip_address",
+            "private_ip",
         },
         "resource_families": {
-            "aws_subnet", "aws_vpc", "aws_network_interface",
-            "aws_eni", "azurerm_subnet", "azurerm_virtual_network",
+            "aws_subnet",
+            "aws_vpc",
+            "aws_network_interface",
+            "aws_eni",
+            "azurerm_subnet",
+            "azurerm_virtual_network",
             "google_compute_subnetwork",
         },
         "score": 70,
@@ -125,14 +184,26 @@ CHANGE_DOMAINS = {
     },
     "capacity_sizing": {
         "attributes": {
-            "instance_type", "instance_class", "node_type",
-            "desired_capacity", "max_size", "min_size",
-            "allocated_storage", "storage_type", "iops",
-            "memory_size", "timeout", "reserved_concurrent_executions",
+            "instance_type",
+            "instance_class",
+            "node_type",
+            "desired_capacity",
+            "max_size",
+            "min_size",
+            "allocated_storage",
+            "storage_type",
+            "iops",
+            "memory_size",
+            "timeout",
+            "reserved_concurrent_executions",
         },
         "resource_families": {
-            "aws_instance", "aws_db_instance", "aws_autoscaling",
-            "aws_lambda", "aws_rds", "azurerm_virtual_machine",
+            "aws_instance",
+            "aws_db_instance",
+            "aws_autoscaling",
+            "aws_lambda",
+            "aws_rds",
+            "azurerm_virtual_machine",
             "google_compute_instance",
         },
         "score": 70,
@@ -149,7 +220,7 @@ _ERROR_CODE_RE = re.compile(
     r'(?:api error |error:\s*|code[:\s]*["\']?)(\w+(?:\.\w+)*)',
     re.IGNORECASE,
 )
-_CAMEL_CASE_RE = re.compile(r'\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b')
+_CAMEL_CASE_RE = re.compile(r"\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b")
 
 
 def _extract_error_codes_from_text(text: str) -> set:
@@ -169,7 +240,7 @@ def _fix_matches_resource_type(fix: Fix, resource_type: str) -> bool:
         for tag in fix.tags.split(","):
             if tag.strip().lower() == rt_lower:
                 return True
-    pattern = re.compile(r'\b' + re.escape(rt_lower) + r'\b', re.IGNORECASE)
+    pattern = re.compile(r"\b" + re.escape(rt_lower) + r"\b", re.IGNORECASE)
     searchable = " ".join(filter(None, [fix.issue, fix.resolution, fix.error_excerpt]))
     return bool(pattern.search(searchable))
 
@@ -200,7 +271,7 @@ def _leaf_address(address: str) -> str:
     i = len(parts) - 1
     while i >= 1:
         if not parts[i - 1].startswith("module"):
-            return ".".join(parts[i - 1:])
+            return ".".join(parts[i - 1 :])
         i -= 1
     return address
 
@@ -228,10 +299,10 @@ def _issue_family(issue_text: str) -> str:
     """
     text = (issue_text or "").lower().strip()
     # Remove common noise words
-    text = re.sub(r'\b(the|a|an|is|was|were|been|be|have|has|had|do|does|did)\b', '', text)
+    text = re.sub(r"\b(the|a|an|is|was|were|been|be|have|has|had|do|does|did)\b", "", text)
     # Remove standalone numbers and ordinal suffixes (attempt 0, attempt 1, etc.)
-    text = re.sub(r'\b\d+\b', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"\b\d+\b", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
     # Take first 80 chars for fingerprinting
     fragment = text[:80]
     return hashlib.md5(fragment.encode()).hexdigest()[:8]
@@ -276,18 +347,18 @@ class RelevanceMatcher:
             module_path = _extract_module_path(node.address)
             leaf_addr = _leaf_address(node.address)
             stripped_addr = _strip_index(node.address)
-            node_domains = self._identify_domains(
-                node.resource_type, changed_attrs
+            node_domains = self._identify_domains(node.resource_type, changed_attrs)
+            node_data.append(
+                {
+                    "node": node,
+                    "changed_attrs": changed_attrs,
+                    "attr_cats": attr_cats,
+                    "module_path": module_path,
+                    "leaf_addr": leaf_addr,
+                    "stripped_addr": stripped_addr,
+                    "domains": node_domains,
+                }
             )
-            node_data.append({
-                "node": node,
-                "changed_attrs": changed_attrs,
-                "attr_cats": attr_cats,
-                "module_path": module_path,
-                "leaf_addr": leaf_addr,
-                "stripped_addr": stripped_addr,
-                "domains": node_domains,
-            })
 
         now = datetime.now(timezone.utc)
 
@@ -301,9 +372,7 @@ class RelevanceMatcher:
             fix_codes = _extract_error_codes_from_text(fix_text)
             fix_tags = set()
             if fix.tags:
-                fix_tags = {
-                    t.strip().lower() for t in fix.tags.split(",") if t.strip()
-                }
+                fix_tags = {t.strip().lower() for t in fix.tags.split(",") if t.strip()}
 
             # Recency bonus
             recency_bonus = 0
@@ -339,8 +408,7 @@ class RelevanceMatcher:
 
                 # 2. Add secondary boosters
                 boosters, booster_signals = self._score_boosters(
-                    fix, fix_text, fix_tags, node, nd, rt_lower, age_days,
-                    recency_bonus
+                    fix, fix_text, fix_tags, node, nd, rt_lower, age_days, recency_bonus
                 )
 
                 total = score + boosters
@@ -351,10 +419,12 @@ class RelevanceMatcher:
                     domain = detail
 
                 # Track this node
-                all_matched_resources.append({
-                    "address": node.address,
-                    "action": node.action,
-                })
+                all_matched_resources.append(
+                    {
+                        "address": node.address,
+                        "action": node.action,
+                    }
+                )
 
                 if total > best_score:
                     best_score = total
@@ -437,19 +507,14 @@ class RelevanceMatcher:
 
         return clustered[:max_total]
 
-    def _score_primary(self, fix, fix_text, fix_codes, fix_tags, node, nd,
-                       rt_lower):
+    def _score_primary(self, fix, fix_text, fix_codes, fix_tags, node, nd, rt_lower):
         """Score primary signals. Returns (score, signal_name, detail)."""
-        has_rt_match = (
-            _fix_matches_resource_type(fix, rt_lower) if rt_lower else False
-        )
+        has_rt_match = _fix_matches_resource_type(fix, rt_lower) if rt_lower else False
 
         # Error code match (150) — requires resource type context
         if fix_codes and has_rt_match:
             for code in fix_codes:
-                if len(code) > 3 and code not in (
-                    "error", "failed", "true", "false"
-                ):
+                if len(code) > 3 and code not in ("error", "failed", "true", "false"):
                     return 150, "error_code", code
 
         # Address match (120)
@@ -461,9 +526,7 @@ class RelevanceMatcher:
         # Attribute match (100) — requires resource type context
         if has_rt_match and nd["changed_attrs"]:
             for attr in nd["changed_attrs"]:
-                attr_pattern = re.compile(
-                    r'\b' + re.escape(attr) + r'\b', re.IGNORECASE
-                )
+                attr_pattern = re.compile(r"\b" + re.escape(attr) + r"\b", re.IGNORECASE)
                 if attr_pattern.search(fix_text):
                     return 100, "changed_attribute", attr
 
@@ -484,8 +547,7 @@ class RelevanceMatcher:
                         tag = tag.strip().lower()
                         tag_family = _resource_family(tag)
                         if tag_family and any(
-                            tag_family.startswith(fam)
-                            for fam in domain_def["resource_families"]
+                            tag_family.startswith(fam) for fam in domain_def["resource_families"]
                         ):
                             fix_in_domain = True
                             break
@@ -496,9 +558,7 @@ class RelevanceMatcher:
                 # Check if fix text mentions a domain attribute
                 if not fix_in_domain:
                     for dom_attr in domain_def["attributes"]:
-                        attr_pat = re.compile(
-                            r'\b' + re.escape(dom_attr) + r'\b', re.IGNORECASE
-                        )
+                        attr_pat = re.compile(r"\b" + re.escape(dom_attr) + r"\b", re.IGNORECASE)
                         if attr_pat.search(fix_text):
                             fix_in_domain = True
                             break
@@ -514,8 +574,7 @@ class RelevanceMatcher:
 
         return 0, "", ""
 
-    def _score_boosters(self, fix, fix_text, fix_tags, node, nd, rt_lower,
-                        age_days, recency_bonus):
+    def _score_boosters(self, fix, fix_text, fix_tags, node, nd, rt_lower, age_days, recency_bonus):
         """Add secondary booster points. Returns (bonus, supporting_signals)."""
         bonus = 0
         supporting = []
@@ -523,18 +582,22 @@ class RelevanceMatcher:
         # Recency bonus (+30)
         if recency_bonus and age_days is not None:
             bonus += recency_bonus
-            supporting.append({
-                "signal": "recency",
-                "detail": f"{age_days} days ago",
-            })
+            supporting.append(
+                {
+                    "signal": "recency",
+                    "detail": f"{age_days} days ago",
+                }
+            )
 
         # Module path bonus (+20)
         if nd["module_path"] and nd["module_path"].lower() in fix_text:
             bonus += 20
-            supporting.append({
-                "signal": "module_path",
-                "detail": nd["module_path"],
-            })
+            supporting.append(
+                {
+                    "signal": "module_path",
+                    "detail": nd["module_path"],
+                }
+            )
 
         # Resource family bonus (+15)
         if rt_lower:
@@ -545,19 +608,23 @@ class RelevanceMatcher:
                     tag_family = _resource_family(tag)
                     if tag_family and tag_family == node_family and tag != rt_lower:
                         bonus += 15
-                        supporting.append({
-                            "signal": "resource_family",
-                            "detail": node_family,
-                        })
+                        supporting.append(
+                            {
+                                "signal": "resource_family",
+                                "detail": node_family,
+                            }
+                        )
                         break
 
         # Type tag booster (+15, demoted from standalone 40)
         if rt_lower and rt_lower in fix_tags:
             bonus += 15
-            supporting.append({
-                "signal": "type_tag",
-                "detail": rt_lower,
-            })
+            supporting.append(
+                {
+                    "signal": "type_tag",
+                    "detail": rt_lower,
+                }
+            )
 
         # Type action booster (+10, demoted from standalone 60)
         has_rt_tag = rt_lower and rt_lower in fix_tags
@@ -565,10 +632,12 @@ class RelevanceMatcher:
             action_words = {"delete", "replace", "update", "create"}
             if any(w in fix_text for w in action_words if w == node.action):
                 bonus += 10
-                supporting.append({
-                    "signal": "type_action",
-                    "detail": f"{rt_lower} + {node.action}",
-                })
+                supporting.append(
+                    {
+                        "signal": "type_action",
+                        "detail": f"{rt_lower} + {node.action}",
+                    }
+                )
 
         return bonus, supporting
 
@@ -587,8 +656,7 @@ class RelevanceMatcher:
 
             # Top changed attribute
             top_attr = None
-            if mr.get("signal") in ("changed_attribute", "change_domain",
-                                     "attribute_category"):
+            if mr.get("signal") in ("changed_attribute", "change_domain", "attribute_category"):
                 top_attr = mr.get("detail")
 
             issue_fam = _issue_family(entry.get("issue", ""))
@@ -637,12 +705,14 @@ class RelevanceMatcher:
         for dom_name, dom_def in self.domains.items():
             overlap = changed_attrs & dom_def["attributes"]
             if overlap:
-                matching.append({
-                    "name": dom_name,
-                    "score": dom_def["score"],
-                    "risk_label": dom_def["risk_label"],
-                    "matched_attrs": overlap,
-                })
+                matching.append(
+                    {
+                        "name": dom_name,
+                        "score": dom_def["score"],
+                        "risk_label": dom_def["risk_label"],
+                        "matched_attrs": overlap,
+                    }
+                )
 
         # Sort by score desc so highest-scoring domain is tried first
         matching.sort(key=lambda d: -d["score"])
@@ -654,19 +724,16 @@ class RelevanceMatcher:
 # ---------------------------------------------------------------------------
 
 _SIGNAL_TEMPLATES = {
-    "error_code": 'Previously encountered **{detail}** when changing {resource_type}.',
-    "address": 'A prior fix for this exact resource exists (**{detail}**).',
+    "error_code": "Previously encountered **{detail}** when changing {resource_type}.",
+    "address": "A prior fix for this exact resource exists (**{detail}**).",
     "changed_attribute": (
-        'When **{detail}** changed previously on {resource_type}, the team '
-        'resolved it by: {resolution_summary}.'
+        "When **{detail}** changed previously on {resource_type}, the team "
+        "resolved it by: {resolution_summary}."
     ),
     "change_domain": (
-        'This change overlaps with a prior **{risk_label}** issue: '
-        '{issue_summary}.'
+        "This change overlaps with a prior **{risk_label}** issue: " "{issue_summary}."
     ),
-    "attribute_category": (
-        'Previous **{detail}** issue for {resource_type}: {issue_summary}.'
-    ),
+    "attribute_category": ("Previous **{detail}** issue for {resource_type}: {issue_summary}."),
 }
 
 

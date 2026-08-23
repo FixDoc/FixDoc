@@ -17,7 +17,6 @@ from ..parsers.base import ParsedError
 from ..storage import FixRepository
 from ..suggestions import find_similar_fixes, prompt_similar_fixes
 
-
 _MEMORY_TYPE_LABELS = {
     "fix": "Fix (specific error -> specific resolution)",
     "check": "Check (verification step)",
@@ -36,11 +35,15 @@ def _classify_and_confirm(resolution: str) -> str:
 
     label = _MEMORY_TYPE_LABELS.get(detected, detected)
     click.echo(f"  Detected type: {label}")
-    override = click.prompt(
-        "  Type [f]ix / [c]heck / [p]laybook / [i]nsight",
-        default=detected,
-        show_default=True,
-    ).strip().lower()
+    override = (
+        click.prompt(
+            "  Type [f]ix / [c]heck / [p]laybook / [i]nsight",
+            default=detected,
+            show_default=True,
+        )
+        .strip()
+        .lower()
+    )
 
     # Accept shorthand or full name
     resolved = _TYPE_SHORTHAND.get(override, override)
@@ -82,9 +85,7 @@ def get_similar_fixes_for_error(
     auto_tags = err.generate_tags()
     if tags:
         auto_tags = f"{auto_tags},{tags}"
-    return find_similar_fixes(
-        repo, err.raw_output, auto_tags, limit=_similar_fix_limit(config)
-    )
+    return find_similar_fixes(repo, err.raw_output, auto_tags, limit=_similar_fix_limit(config))
 
 
 def capture_single_error(
@@ -126,7 +127,10 @@ def capture_single_error(
         if tags:
             auto_tags = f"{auto_tags},{tags}"
         existing_fix = prompt_similar_fixes(
-            repo, output, auto_tags, limit=_similar_fix_limit(config),
+            repo,
+            output,
+            auto_tags,
+            limit=_similar_fix_limit(config),
         )
         if existing_fix:
             click.echo(f"\n Using existing fix: {existing_fix.id[:8]}")
@@ -158,7 +162,7 @@ def capture_single_error(
     return Fix(
         issue=issue,
         resolution=resolution,
-        error_excerpt=output[:_excerpt_limit(config)],
+        error_excerpt=output[: _excerpt_limit(config)],
         tags=final_tags,
         notes=notes or None,
         memory_type=memory_type,
@@ -179,7 +183,7 @@ def capture_single_k8s_error(
     click.echo("─" * 50)
 
     # Determine source label
-    if hasattr(err, 'helm_release') and err.helm_release:
+    if hasattr(err, "helm_release") and err.helm_release:
         source_label = "Helm"
     else:
         source_label = "Kubernetes"
@@ -222,7 +226,10 @@ def capture_single_k8s_error(
         if tags:
             auto_tags = f"{auto_tags},{tags}"
         existing_fix = prompt_similar_fixes(
-            repo, output, auto_tags, limit=_similar_fix_limit(config),
+            repo,
+            output,
+            auto_tags,
+            limit=_similar_fix_limit(config),
         )
         if existing_fix:
             click.echo(f"\n Using existing fix: {existing_fix.id[:8]}")
@@ -258,7 +265,7 @@ def capture_single_k8s_error(
     return Fix(
         issue=issue,
         resolution=resolution,
-        error_excerpt=output[:_excerpt_limit(config)],
+        error_excerpt=output[: _excerpt_limit(config)],
         tags=final_tags,
         notes=notes or None,
         memory_type=memory_type,
@@ -266,7 +273,9 @@ def capture_single_k8s_error(
 
 
 def handle_piped_input(
-    output: str, tags: Optional[str], repo: Optional[FixRepository] = None,
+    output: str,
+    tags: Optional[str],
+    repo: Optional[FixRepository] = None,
     config: Optional[FixDocConfig] = None,
 ) -> Optional[Fix]:
     """
@@ -286,11 +295,13 @@ def handle_piped_input(
 
 
 def handle_terraform_capture(
-    output: str, tags: Optional[str], repo: Optional[FixRepository] = None,
+    output: str,
+    tags: Optional[str],
+    repo: Optional[FixRepository] = None,
     config: Optional[FixDocConfig] = None,
 ) -> Optional[Fix]:
     """Handle Terraform output with multi-cloud support."""
-    errors = detect_and_parse(output) # this detects all the errors and returns them as a list
+    errors = detect_and_parse(output)  # this detects all the errors and returns them as a list
 
     if not errors:
         click.echo("No Terraform errors found in input", err=True)
@@ -307,7 +318,9 @@ def handle_terraform_capture(
 
 
 def handle_kubernetes_capture(
-    output: str, tags: Optional[str], repo: Optional[FixRepository] = None,
+    output: str,
+    tags: Optional[str],
+    repo: Optional[FixRepository] = None,
     config: Optional[FixDocConfig] = None,
 ) -> Optional[Fix]:
     """Handle Kubernetes (kubectl/Helm) output."""
@@ -328,7 +341,9 @@ def handle_kubernetes_capture(
 
 
 def handle_generic_piped_capture(
-    piped_input: str, tags: Optional[str], repo: Optional[FixRepository] = None,
+    piped_input: str,
+    tags: Optional[str],
+    repo: Optional[FixRepository] = None,
     config: Optional[FixDocConfig] = None,
 ) -> Optional[Fix]:
     """Handle generic piped input - treat as error excerpt."""
@@ -339,7 +354,10 @@ def handle_generic_piped_capture(
     # Check for similar existing fixes before prompting for details
     if repo:
         existing_fix = prompt_similar_fixes(
-            repo, piped_input, tags, limit=_similar_fix_limit(config),
+            repo,
+            piped_input,
+            tags,
+            limit=_similar_fix_limit(config),
         )
         if existing_fix:
             click.echo(f"\n Using existing fix: {existing_fix.id[:8]}")
@@ -361,7 +379,7 @@ def handle_generic_piped_capture(
     return Fix(
         issue=issue,
         resolution=resolution,
-        error_excerpt=piped_input[:_excerpt_limit(config)],
+        error_excerpt=piped_input[: _excerpt_limit(config)],
         tags=tags or None,
         notes=notes or None,
         memory_type=memory_type,
@@ -414,9 +432,7 @@ def handle_interactive_capture(
 
     resolution = click.prompt("How was it resolved?")
 
-    error_excerpt = click.prompt(
-        "Error excerpt (optional)", default="", show_default=False
-    )
+    error_excerpt = click.prompt("Error excerpt (optional)", default="", show_default=False)
 
     if not tags:
         tags = click.prompt("Tags (optional)", default="", show_default=False)

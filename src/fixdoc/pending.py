@@ -27,11 +27,11 @@ class PendingEntry:
     file: Optional[str] = None
     command: Optional[str] = None
     cwd: Optional[str] = None
-    session_id: Optional[str] = None        # 8-char hex, shared by all entries in one watch run
-    status: str = "pending"                 # "pending" | "superseded" | "resolved"
-    command_family: Optional[str] = None    # pre-computed from command (stored for querying)
-    kind: Optional[str] = None             # "resource" | "terraform_config" | "terraform_init"
-    worthiness: str = "memory_worthy"     # "memory_worthy" | "self_explanatory"
+    session_id: Optional[str] = None  # 8-char hex, shared by all entries in one watch run
+    status: str = "pending"  # "pending" | "superseded" | "resolved"
+    command_family: Optional[str] = None  # pre-computed from command (stored for querying)
+    kind: Optional[str] = None  # "resource" | "terraform_config" | "terraform_init"
+    worthiness: str = "memory_worthy"  # "memory_worthy" | "self_explanatory"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -150,9 +150,7 @@ class PendingStore:
         return []
 
     def _write(self, entries: list[dict]) -> None:
-        self._pending_path.write_text(
-            json.dumps(entries, indent=2) + "\n", encoding="utf-8"
-        )
+        self._pending_path.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
 
     def save(self, entry: PendingEntry) -> None:
         """Append a pending entry (replaces if same error_id exists)."""
@@ -162,7 +160,9 @@ class PendingStore:
         entries.append(entry.to_dict())
         self._write(entries)
 
-    def list_all(self, include_superseded: bool = False, include_self_explanatory: bool = False) -> list[PendingEntry]:
+    def list_all(
+        self, include_superseded: bool = False, include_self_explanatory: bool = False
+    ) -> list[PendingEntry]:
         """Return pending entries. By default only returns status='pending' and hides self-explanatory."""
         entries = [PendingEntry.from_dict(e) for e in self._read()]
         if not include_superseded:
@@ -175,10 +175,7 @@ class PendingStore:
         """Remove a pending entry by error_id (or prefix). Returns True if found."""
         entries = self._read()
         original_len = len(entries)
-        entries = [
-            e for e in entries
-            if not e.get("error_id", "").startswith(error_id)
-        ]
+        entries = [e for e in entries if not e.get("error_id", "").startswith(error_id)]
         if len(entries) < original_len:
             self._write(entries)
             return True

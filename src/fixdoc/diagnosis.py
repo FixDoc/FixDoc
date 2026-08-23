@@ -31,8 +31,7 @@ def diagnose_error(
         return None
 
     prompt_parts = [
-        "You are an infrastructure engineer's assistant."
-        " A command failed with this error.",
+        "You are an infrastructure engineer's assistant." " A command failed with this error.",
         "",
         f"Error type: {entry.error_type}",
     ]

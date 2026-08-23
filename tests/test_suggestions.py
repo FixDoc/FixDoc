@@ -149,11 +149,13 @@ class TestFindSimilarFixes:
 
     def test_min_score_filters(self, temp_repo):
         """Min score threshold should filter out low-relevance matches."""
-        temp_repo.save(Fix(
-            issue="Some vague issue about permissions",
-            resolution="Fixed permissions",
-            tags="terraform",
-        ))
+        temp_repo.save(
+            Fix(
+                issue="Some vague issue about permissions",
+                resolution="Fixed permissions",
+                tags="terraform",
+            )
+        )
 
         # With high threshold, vague match is excluded
         similar_high = find_similar_fixes(
@@ -188,12 +190,14 @@ class TestFindSimilarFixes:
 
     def test_custom_weights(self, temp_repo):
         """Custom weights should change ranking."""
-        temp_repo.save(Fix(
-            issue="IAM role issue",
-            resolution="Fixed role policy",
-            tags="aws_iam_role,terraform",
-            error_excerpt="Error: AccessDenied on aws_iam_role.app",
-        ))
+        temp_repo.save(
+            Fix(
+                issue="IAM role issue",
+                resolution="Fixed role policy",
+                tags="aws_iam_role,terraform",
+                error_excerpt="Error: AccessDenied on aws_iam_role.app",
+            )
+        )
 
         # With high resource_address_weight
         weights = SuggestionWeights(resource_address_weight=50)
@@ -210,12 +214,14 @@ class TestDedupCluster:
     def test_dedup_identical_fixes(self, temp_repo):
         """Near-identical fixes should be deduped to highest scorer."""
         for i in range(3):
-            temp_repo.save(Fix(
-                issue=f"InsufficientInstanceCapacity on aws_instance.web #{i}",
-                resolution=f"Changed instance type #{i}",
-                tags="aws_instance,terraform,InsufficientInstanceCapacity",
-                error_excerpt="InsufficientInstanceCapacity",
-            ))
+            temp_repo.save(
+                Fix(
+                    issue=f"InsufficientInstanceCapacity on aws_instance.web #{i}",
+                    resolution=f"Changed instance type #{i}",
+                    tags="aws_instance,terraform,InsufficientInstanceCapacity",
+                    error_excerpt="InsufficientInstanceCapacity",
+                )
+            )
 
         similar = find_similar_fixes(
             temp_repo,
@@ -229,18 +235,22 @@ class TestDedupCluster:
 
     def test_different_errors_not_deduped(self, temp_repo):
         """Fixes with different error codes should not be deduped."""
-        temp_repo.save(Fix(
-            issue="S3 BucketAlreadyExists",
-            resolution="Use unique name",
-            tags="aws_s3_bucket",
-            error_excerpt="BucketAlreadyExists",
-        ))
-        temp_repo.save(Fix(
-            issue="S3 AccessDenied on bucket",
-            resolution="Fix IAM policy",
-            tags="aws_s3_bucket",
-            error_excerpt="AccessDenied",
-        ))
+        temp_repo.save(
+            Fix(
+                issue="S3 BucketAlreadyExists",
+                resolution="Use unique name",
+                tags="aws_s3_bucket",
+                error_excerpt="BucketAlreadyExists",
+            )
+        )
+        temp_repo.save(
+            Fix(
+                issue="S3 AccessDenied on bucket",
+                resolution="Fix IAM policy",
+                tags="aws_s3_bucket",
+                error_excerpt="AccessDenied",
+            )
+        )
 
         similar = find_similar_fixes(
             temp_repo,
@@ -329,9 +339,7 @@ class TestExtractResourceTypes:
         assert "google_compute_instance" in types
 
     def test_multiple_resource_types(self):
-        types = _extract_resource_types(
-            "Error with aws_iam_role and aws_s3_bucket"
-        )
+        types = _extract_resource_types("Error with aws_iam_role and aws_s3_bucket")
         assert "aws_iam_role" in types
         assert "aws_s3_bucket" in types
 
@@ -350,6 +358,7 @@ class TestErrorIdMatch:
 
     def test_error_id_match_boosts_score(self, tmp_path):
         from fixdoc.storage import FixRepository
+
         repo = FixRepository(tmp_path)
         fix = Fix(
             issue="AccessDenied on role",
@@ -361,11 +370,15 @@ class TestErrorIdMatch:
 
         # With error_id match
         results_with = find_similar_fixes(
-            repo, "AccessDenied", error_id="err_abc123",
+            repo,
+            "AccessDenied",
+            error_id="err_abc123",
         )
         # Without error_id
         results_without = find_similar_fixes(
-            repo, "AccessDenied", error_id="different_id",
+            repo,
+            "AccessDenied",
+            error_id="different_id",
         )
 
         # The fix should appear in both (if score >= min_score),
@@ -375,6 +388,7 @@ class TestErrorIdMatch:
 
     def test_error_id_no_match_no_boost(self, tmp_path):
         from fixdoc.storage import FixRepository
+
         repo = FixRepository(tmp_path)
         fix = Fix(
             issue="AccessDenied on role",
@@ -386,13 +400,16 @@ class TestErrorIdMatch:
 
         # Non-matching error_id should not boost
         results = find_similar_fixes(
-            repo, "AccessDenied", error_id="completely_different",
+            repo,
+            "AccessDenied",
+            error_id="completely_different",
         )
         # Fix may or may not appear depending on other scoring — but no crash
         # The key assertion: no error raised
 
     def test_error_id_none_no_crash(self, tmp_path):
         from fixdoc.storage import FixRepository
+
         repo = FixRepository(tmp_path)
         fix = Fix(
             issue="AccessDenied on role",

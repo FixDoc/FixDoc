@@ -107,9 +107,7 @@ class GitOperations:
         """Push commits to remote."""
         self._run("push", "-u", remote, branch)
 
-    def pull(
-        self, remote: str = "origin", branch: str = "main"
-    ) -> Tuple[bool, list[str]]:
+    def pull(self, remote: str = "origin", branch: str = "main") -> Tuple[bool, list[str]]:
         """
         Pull from remote.
         Returns (had_conflicts, conflicted_files).
@@ -255,9 +253,7 @@ class GitOperations:
     def is_git_available() -> bool:
         """Check if git is available on the system."""
         try:
-            subprocess.run(
-                ["git", "--version"], capture_output=True, text=True, check=True
-            )
+            subprocess.run(["git", "--version"], capture_output=True, text=True, check=True)
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False

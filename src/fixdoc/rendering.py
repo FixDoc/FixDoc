@@ -8,7 +8,13 @@ import re
 _LIST_MARKER_RE = re.compile(r"^\s*(?:\d+[\.\)]\s*|[-*]\s*)")
 
 _CHECK_KEYWORDS = (
-    "verify", "confirm", "ensure", "check", "make sure", "validate", "assert",
+    "verify",
+    "confirm",
+    "ensure",
+    "check",
+    "make sure",
+    "validate",
+    "assert",
 )
 
 
@@ -17,7 +23,7 @@ def _strip_check_prefix(text):
     lower = text.lstrip().lower()
     for kw in _CHECK_KEYWORDS:
         if lower.startswith(kw):
-            stripped = text.lstrip()[len(kw):].lstrip(" :").lstrip()
+            stripped = text.lstrip()[len(kw) :].lstrip(" :").lstrip()
             return stripped if stripped else text
     return text
 

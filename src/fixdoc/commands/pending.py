@@ -10,8 +10,9 @@ from .capture_handlers import handle_piped_input
 
 
 @click.group(invoke_without_command=True)
-@click.option("--all", "show_all", is_flag=True, default=False,
-              help="Include self-explanatory errors.")
+@click.option(
+    "--all", "show_all", is_flag=True, default=False, help="Include self-explanatory errors."
+)
 @click.pass_context
 def pending(ctx, show_all):
     """List and manage deferred (pending) errors.
@@ -31,7 +32,9 @@ def _list_pending(show_all: bool = False) -> None:
         if not show_all:
             all_entries = store.list_all(include_self_explanatory=True)
             if all_entries:
-                click.echo(f"No pending errors ({len(all_entries)} self-explanatory hidden. Use --all to show).")
+                click.echo(
+                    f"No pending errors ({len(all_entries)} self-explanatory hidden. Use --all to show)."
+                )
                 return
         click.echo("No pending errors.")
         return
@@ -82,9 +85,7 @@ def pending_capture(ctx, error_id_or_number):
     click.echo(f"Capturing pending error: {entry.error_id}")
     click.echo(f"  {entry.short_message}\n")
 
-    fix = handle_piped_input(
-        entry.error_excerpt, tags=entry.tags, repo=repo, config=config
-    )
+    fix = handle_piped_input(entry.error_excerpt, tags=entry.tags, repo=repo, config=config)
 
     if fix:
         repo.save(fix)

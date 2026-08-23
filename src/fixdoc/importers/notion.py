@@ -10,24 +10,25 @@ from .base import build_fix, clean_text, detect_resource_types, normalize_tags
 _NOTION_API_BASE = "https://api.notion.com/v1"
 _NOTION_VERSION = "2022-06-28"
 
-_DEFAULT_TITLE_FIELDS = [
-    "name", "title", "summary", "incident", "issue", "problem"
-]
+_DEFAULT_TITLE_FIELDS = ["name", "title", "summary", "incident", "issue", "problem"]
 _DEFAULT_RESOLUTION_FIELDS = [
-    "resolution", "fix", "fix / mitigation", "postmortem",
-    "remediation", "outcome", "action taken", "learnings",
+    "resolution",
+    "fix",
+    "fix / mitigation",
+    "postmortem",
+    "remediation",
+    "outcome",
+    "action taken",
+    "learnings",
 ]
-_DEFAULT_STATUS_FIELDS = [
-    "status", "state", "ticket status", "progress", "stage"
-]
-_DEFAULT_DONE_VALUES = {
-    "done", "closed", "resolved", "fixed", "complete", "completed", "solved"
-}
+_DEFAULT_STATUS_FIELDS = ["status", "state", "ticket status", "progress", "stage"]
+_DEFAULT_DONE_VALUES = {"done", "closed", "resolved", "fixed", "complete", "completed", "solved"}
 
 
 # ---------------------------------------------------------------------------
 # Property text extraction
 # ---------------------------------------------------------------------------
+
 
 def _get_property_text(prop: dict) -> str:
     """Extract plain text from a Notion property value dict."""
@@ -54,6 +55,7 @@ def _get_property_text(prop: dict) -> str:
 # ---------------------------------------------------------------------------
 # Field matching
 # ---------------------------------------------------------------------------
+
 
 def _find_field(props: dict, candidates: List[str]) -> Tuple[Optional[str], Optional[dict]]:
     """
@@ -86,6 +88,7 @@ def _find_field(props: dict, candidates: List[str]) -> Tuple[Optional[str], Opti
 # ---------------------------------------------------------------------------
 # Network helpers
 # ---------------------------------------------------------------------------
+
 
 def _notion_request(url: str, token: str, method: str = "GET", body: Optional[dict] = None) -> dict:
     """Make a Notion API request. Raises RuntimeError on HTTP errors."""
@@ -154,16 +157,31 @@ def fetch_page_blocks(token: str, page_id: str) -> List[dict]:
 # ---------------------------------------------------------------------------
 
 _BLOCK_TEXT_TYPES = {
-    "paragraph", "heading_1", "heading_2", "heading_3",
-    "bulleted_list_item", "numbered_list_item", "to_do", "quote", "callout",
+    "paragraph",
+    "heading_1",
+    "heading_2",
+    "heading_3",
+    "bulleted_list_item",
+    "numbered_list_item",
+    "to_do",
+    "quote",
+    "callout",
 }
 
 _HEADING_TYPES = {"heading_1", "heading_2", "heading_3"}
 
 _RESOLUTION_SECTION_HEADINGS = [
-    "fix", "mitigation", "resolution", "fix/mitigation",
-    "root cause", "action taken", "remediation", "workaround",
-    "solution", "steps taken", "corrective action",
+    "fix",
+    "mitigation",
+    "resolution",
+    "fix/mitigation",
+    "root cause",
+    "action taken",
+    "remediation",
+    "workaround",
+    "solution",
+    "steps taken",
+    "corrective action",
 ]
 
 
@@ -198,9 +216,7 @@ def extract_section_text(blocks: List[dict], section_candidates: List[str]) -> s
         if block_type not in _HEADING_TYPES:
             continue
         rich_text = block.get(block_type, {}).get("rich_text", [])
-        heading_text = "".join(
-            item.get("plain_text", "") for item in rich_text
-        ).strip().lower()
+        heading_text = "".join(item.get("plain_text", "") for item in rich_text).strip().lower()
         if heading_text in candidates_lower:
             start_idx = i
             break
@@ -210,7 +226,7 @@ def extract_section_text(blocks: List[dict], section_candidates: List[str]) -> s
 
     # Collect content blocks until the next heading or end
     lines = []
-    for block in blocks[start_idx + 1:]:
+    for block in blocks[start_idx + 1 :]:
         block_type = block.get("type", "")
         if block_type in _HEADING_TYPES:
             break
@@ -227,6 +243,7 @@ def extract_section_text(blocks: List[dict], section_candidates: List[str]) -> s
 # ---------------------------------------------------------------------------
 # Extractor
 # ---------------------------------------------------------------------------
+
 
 def extract(
     pages: List[dict],
@@ -250,9 +267,7 @@ def extract(
     status_candidates = [status_field] if status_field else _DEFAULT_STATUS_FIELDS
 
     done_set = (
-        {v.strip().lower() for v in done_values.split(",")}
-        if done_values
-        else _DEFAULT_DONE_VALUES
+        {v.strip().lower() for v in done_values.split(",")} if done_values else _DEFAULT_DONE_VALUES
     )
 
     fixes = []

@@ -46,9 +46,7 @@ def _slack_request(
                 if attempt < _MAX_RETRIES - 1:
                     time.sleep(retry_after)
                     continue
-                raise RuntimeError(
-                    f"Slack API rate limited after {_MAX_RETRIES} retries"
-                ) from e
+                raise RuntimeError(f"Slack API rate limited after {_MAX_RETRIES} retries") from e
             body_text = e.read().decode(errors="replace")
             raise RuntimeError(f"Slack API error {e.code}: {body_text}") from e
 
@@ -149,10 +147,7 @@ def fetch_user_display_name(
         user = data.get("user", {})
         profile = user.get("profile", {})
         name = (
-            profile.get("display_name")
-            or profile.get("real_name")
-            or user.get("name")
-            or user_id
+            profile.get("display_name") or profile.get("real_name") or user.get("name") or user_id
         )
     except Exception:
         name = user_id
@@ -234,9 +229,7 @@ def _slack_mrkdwn_to_text(
 
 def _extract_code_blocks(text: str) -> List[str]:
     """Extract ```...``` code blocks from message text."""
-    return [
-        m.group(1).strip() for m in _CODE_BLOCK_RE.finditer(text) if m.group(1).strip()
-    ]
+    return [m.group(1).strip() for m in _CODE_BLOCK_RE.finditer(text) if m.group(1).strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -305,9 +298,7 @@ def extract(
             channel_id = thread.get("channel_id", "")
 
             # 1. Root message text → issue
-            root_text = _slack_mrkdwn_to_text(
-                root.get("text", ""), user_cache, fetch_user_fn
-            )
+            root_text = _slack_mrkdwn_to_text(root.get("text", ""), user_cache, fetch_user_fn)
 
             # 2. Code blocks from root → error_excerpt
             code_blocks = _extract_code_blocks(root.get("text", ""))
@@ -346,9 +337,7 @@ def extract(
             elif root.get("user"):
                 root_author = user_cache.get(root["user"], root["user"])
 
-            resolver_uids = list(
-                dict.fromkeys(r.get("user", "unknown") for r in res_replies)
-            )
+            resolver_uids = list(dict.fromkeys(r.get("user", "unknown") for r in res_replies))
             resolver_names = []
             for uid in resolver_uids:
                 if fetch_user_fn:

@@ -24,7 +24,6 @@ from ..outcomes import Outcome, OutcomeStore, compute_plan_fingerprint
 from ..storage import FixRepository
 from ..parsers.base import CloudProvider
 
-
 _SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
 
@@ -137,16 +136,18 @@ class TerraformAnalyzer:
             values = change.get("change", {}).get("after", {}) or {}
             before_values = change.get("change", {}).get("before", {}) or {}
 
-            resources.append(PlanResource(
-                address=address,
-                resource_type=resource_type,
-                name=name,
-                cloud_provider=self.detect_cloud_provider(resource_type, provider_name),
-                action=action,
-                module_path=module_path,
-                values=values,
-                before_values=before_values,
-            ))
+            resources.append(
+                PlanResource(
+                    address=address,
+                    resource_type=resource_type,
+                    name=name,
+                    cloud_provider=self.detect_cloud_provider(resource_type, provider_name),
+                    action=action,
+                    module_path=module_path,
+                    values=values,
+                    before_values=before_values,
+                )
+            )
 
         # Also check planned_values for additional resources
         self._extract_from_planned_values(plan.get("planned_values", {}), resources)
@@ -178,15 +179,17 @@ class TerraformAnalyzer:
 
                 provider_name = resource.get("provider_name", "")
 
-                resources.append(PlanResource(
-                    address=address,
-                    resource_type=resource_type,
-                    name=resource.get("name", ""),
-                    cloud_provider=self.detect_cloud_provider(resource_type, provider_name),
-                    action="unknown",
-                    module_path=prefix or None,
-                    values=resource.get("values", {}),
-                ))
+                resources.append(
+                    PlanResource(
+                        address=address,
+                        resource_type=resource_type,
+                        name=resource.get("name", ""),
+                        cloud_provider=self.detect_cloud_provider(resource_type, provider_name),
+                        action="unknown",
+                        module_path=prefix or None,
+                        values=resource.get("values", {}),
+                    )
+                )
                 existing_addresses.add(address)
 
             # Process child modules
@@ -208,10 +211,7 @@ class TerraformAnalyzer:
     def get_changed_resources(self, plan: dict) -> list[PlanResource]:
         """Get only resources that are actually changing (not no-op/read/unknown)."""
         resources = self.extract_resources(plan)
-        return [
-            r for r in resources
-            if r.action in ("create", "update", "delete", "replace")
-        ]
+        return [r for r in resources if r.action in ("create", "update", "delete", "replace")]
 
     def analyze(self, plan_path: Path) -> list[AnalysisMatch]:
         """Analyze a terraform plan for potential issues based on past fixes."""
@@ -396,6 +396,7 @@ def _format_human(
             addr = res.address
             cp_info = ""
             from ..change_impact import classify_control_point
+
             cp = classify_control_point(res.resource_type)
             if cp:
                 cp_info = f"  [{cp[0]} boundary]"
@@ -602,9 +603,7 @@ def _format_markdown(result: ImpactResult) -> str:
 
     # Score explanation — top 3, skip modifiers, sorted by delta desc
     if result.score_explanation:
-        visible = [
-            e for e in result.score_explanation if e.get("kind") != "modifier"
-        ]
+        visible = [e for e in result.score_explanation if e.get("kind") != "modifier"]
         visible.sort(key=lambda e: e.get("delta", 0), reverse=True)
         visible = visible[:3]
         if visible:
@@ -618,10 +617,7 @@ def _format_markdown(result: ImpactResult) -> str:
     # Contextual checks — top 3
     ctx_checks = result.contextual_checks if result.contextual_checks else []
     if not ctx_checks and result.checks:
-        ctx_checks = [
-            {"check": c, "source": "category", "resource": ""}
-            for c in result.checks
-        ]
+        ctx_checks = [{"check": c, "source": "category", "resource": ""} for c in result.checks]
     if ctx_checks:
         top_checks = ctx_checks[:3]
         lines.append("### Contextual Checks")
@@ -785,7 +781,9 @@ def generate_ai_narrative(
         f"Resources changing: {resource_summary}.",
     ]
     if control_point_addrs:
-        prompt_parts.append(f"Control points (IAM/network boundaries): {', '.join(control_point_addrs)}.")
+        prompt_parts.append(
+            f"Control points (IAM/network boundaries): {', '.join(control_point_addrs)}."
+        )
     if result.affected:
         prompt_parts.append(f"Downstream impacted resources: {len(result.affected)}.")
     if check_texts:
@@ -886,18 +884,36 @@ def _auto_run_terraform_graph() -> Optional[str]:
     help="Fix history match strictness: strict, balanced, or loose.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed output")
-@click.option("--tag-only", is_flag=True, default=False,
-              help="Only show tribal warnings from tag-matched fixes (no text search).")
-@click.option("--max-warnings", "max_warnings", type=int, default=10,
-              help="Max number of tribal knowledge warnings to surface.")
-@click.option("--ai-explain", "ai_explain", is_flag=True, default=False,
-              help="Use Claude API to generate polished score explanation. Requires ANTHROPIC_API_KEY.")
-@click.option("--record", is_flag=True, default=False,
-              help="Save analysis result as an outcome for apply tracking.")
-@click.option("--pr", "pr_number", default=None,
-              help="PR number (for CI linking, requires --record).")
-@click.option("--commit", "commit_sha", default=None,
-              help="Commit SHA (requires --record).")
+@click.option(
+    "--tag-only",
+    is_flag=True,
+    default=False,
+    help="Only show tribal warnings from tag-matched fixes (no text search).",
+)
+@click.option(
+    "--max-warnings",
+    "max_warnings",
+    type=int,
+    default=10,
+    help="Max number of tribal knowledge warnings to surface.",
+)
+@click.option(
+    "--ai-explain",
+    "ai_explain",
+    is_flag=True,
+    default=False,
+    help="Use Claude API to generate polished score explanation. Requires ANTHROPIC_API_KEY.",
+)
+@click.option(
+    "--record",
+    is_flag=True,
+    default=False,
+    help="Save analysis result as an outcome for apply tracking.",
+)
+@click.option(
+    "--pr", "pr_number", default=None, help="PR number (for CI linking, requires --record)."
+)
+@click.option("--commit", "commit_sha", default=None, help="Commit SHA (requires --record).")
 @click.pass_context
 def analyze(
     ctx,
@@ -1004,8 +1020,12 @@ def analyze(
 
     # Run change impact analysis
     result = analyze_change_impact(
-        plan, repo, dot_text=dot_text, max_depth=max_depth,
-        tag_only=tag_only, max_resource_warnings=max_warnings,
+        plan,
+        repo,
+        dot_text=dot_text,
+        max_depth=max_depth,
+        tag_only=tag_only,
+        max_resource_warnings=max_warnings,
         change_blocks=plan_change_blocks,
         outcome_failure_count=outcome_failure_count,
     )
@@ -1030,15 +1050,12 @@ def analyze(
             ctx_checks = result.contextual_checks if result.contextual_checks else []
             if not ctx_checks and result.checks:
                 ctx_checks = [
-                    {"check": c, "source": "category", "resource": ""}
-                    for c in result.checks
+                    {"check": c, "source": "category", "resource": ""} for c in result.checks
                 ]
             top_checks = ctx_checks[:3]
 
             # Collect resource types
-            resource_types = sorted(set(
-                r.resource_type for r in changed
-            ))
+            resource_types = sorted(set(r.resource_type for r in changed))
 
             oc = Outcome(
                 plan_fingerprint=plan_fp,
@@ -1055,8 +1072,7 @@ def analyze(
             outcome_store.save(oc)
             recorded_outcome_id = oc.outcome_id
             click.echo(
-                f"Outcome recorded: {oc.outcome_id} "
-                f"(fingerprint: {plan_fp[:12]}...)",
+                f"Outcome recorded: {oc.outcome_id} " f"(fingerprint: {plan_fp[:12]}...)",
                 err=True,
             )
         except Exception as e:
@@ -1080,15 +1096,25 @@ def analyze(
     if summary:
         click.echo(_format_summary(result))
     elif output_format == "json":
-        click.echo(_format_json(
-            result,
-            plan_fingerprint=plan_fp,
-            outcome_id=recorded_outcome_id,
-        ))
+        click.echo(
+            _format_json(
+                result,
+                plan_fingerprint=plan_fp,
+                outcome_id=recorded_outcome_id,
+            )
+        )
     elif output_format == "markdown":
         click.echo(_format_markdown(result))
     else:
-        click.echo(_format_human(result, changed, verbose=verbose, ai_explanation=ai_explanation, ai_narrative=ai_narrative))
+        click.echo(
+            _format_human(
+                result,
+                changed,
+                verbose=verbose,
+                ai_explanation=ai_explanation,
+                ai_narrative=ai_narrative,
+            )
+        )
 
     # CI gating
     if exit_on is not None:

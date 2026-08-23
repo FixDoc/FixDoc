@@ -46,8 +46,7 @@ def mock_popen_failure(exit_code=1, stdout_lines=None):
     return mock_proc
 
 
-def _make_parsed_error(resource_address="aws_iam_role.app",
-                       error_code="AccessDenied", **kwargs):
+def _make_parsed_error(resource_address="aws_iam_role.app", error_code="AccessDenied", **kwargs):
     """Create a ParsedError for testing."""
     defaults = dict(
         error_type="terraform",
@@ -93,14 +92,14 @@ class TestWatchCommandSuccess:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_success([b"hello world\n", b""])
             _patch_store_no_pending(MockStore)
 
-            result = runner.invoke(
-                cli, ["watch", "--", "echo", "hello"], obj=make_obj(tmp_path)
-            )
+            result = runner.invoke(cli, ["watch", "--", "echo", "hello"], obj=make_obj(tmp_path))
 
         assert "deferred error" not in result.output
         assert result.exit_code == 0
@@ -110,20 +109,21 @@ class TestWatchCommandSuccess:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_success()
             _patch_store_no_pending(MockStore)
 
-            result = runner.invoke(
-                cli, ["watch", "--", "true"], obj=make_obj(tmp_path)
-            )
+            result = runner.invoke(cli, ["watch", "--", "true"], obj=make_obj(tmp_path))
 
         assert result.exit_code == 0
 
     def test_success_with_matching_pending_calls_resolve(self, tmp_path):
         """On success, if context-matching pending entries exist, resolve flow is triggered."""
         from fixdoc.pending import PendingEntry
+
         runner = CliRunner()
         cli = create_cli()
         entry = PendingEntry(
@@ -136,9 +136,11 @@ class TestWatchCommandSuccess:
             command="terraform apply",
         )
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve,
+        ):
             mp.return_value = mock_popen_success()
             instance = MockStore.return_value
             instance.find_latest_session.return_value = [entry]
@@ -146,7 +148,9 @@ class TestWatchCommandSuccess:
             mock_resolve.return_value = None
 
             result = runner.invoke(
-                cli, ["watch", "--", "terraform", "apply"], obj=make_obj(tmp_path),
+                cli,
+                ["watch", "--", "terraform", "apply"],
+                obj=make_obj(tmp_path),
                 input="q\n",
             )
 
@@ -157,15 +161,18 @@ class TestWatchCommandSuccess:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve,
+        ):
             mp.return_value = mock_popen_success()
             instance = MockStore.return_value
             instance.find_latest_session.return_value = []
 
             result = runner.invoke(
-                cli, ["watch", "--no-prompt", "--", "terraform", "apply"],
+                cli,
+                ["watch", "--no-prompt", "--", "terraform", "apply"],
                 obj=make_obj(tmp_path),
             )
 
@@ -176,15 +183,19 @@ class TestWatchCommandSuccess:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve,
+        ):
             mp.return_value = mock_popen_success()
             instance = MockStore.return_value
             instance.find_latest_session.return_value = []
 
             result = runner.invoke(
-                cli, ["watch", "--", "terraform", "apply"], obj=make_obj(tmp_path),
+                cli,
+                ["watch", "--", "terraform", "apply"],
+                obj=make_obj(tmp_path),
             )
 
         mock_resolve.assert_not_called()
@@ -203,9 +214,11 @@ class TestWatchCommandFailure:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             store_instance = MockStore.return_value
@@ -226,9 +239,11 @@ class TestWatchCommandFailure:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             store_instance = MockStore.return_value
@@ -247,9 +262,11 @@ class TestWatchCommandFailure:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
@@ -268,9 +285,11 @@ class TestWatchCommandFailure:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure(exit_code=42)
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
@@ -290,10 +309,12 @@ class TestWatchCommandFailure:
         cli = create_cli()
         mock_fix = _make_fix()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "capture_single_error", return_value=mock_fix),
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             store_instance = MockStore.return_value
@@ -340,9 +361,11 @@ class TestWatchCommandFailureGeneric:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=[]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"some generic error text\n", b""],
             )
@@ -366,10 +389,12 @@ class TestWatchCommandFailureGeneric:
         cli = create_cli()
         mock_fix = _make_fix()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "handle_piped_input", return_value=mock_fix):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=[]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "handle_piped_input", return_value=mock_fix),
+        ):
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"some generic error text\n", b""],
             )
@@ -389,9 +414,11 @@ class TestWatchCommandFailureGeneric:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=[]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"some error\n", b""],
             )
@@ -420,9 +447,11 @@ class TestWatchCommandOptions:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             store_instance = MockStore.return_value
@@ -442,9 +471,11 @@ class TestWatchCommandOptions:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
@@ -462,11 +493,15 @@ class TestWatchCommandOptions:
         """--no-prompt with multiple errors defers all to pending."""
         runner = CliRunner()
         cli = create_cli()
-        errors = [_make_parsed_error(resource_address=f"res_{i}", error_code=f"E{i}") for i in range(3)]
+        errors = [
+            _make_parsed_error(resource_address=f"res_{i}", error_code=f"E{i}") for i in range(3)
+        ]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = errors
             store_instance = MockStore.return_value
@@ -484,9 +519,11 @@ class TestWatchCommandOptions:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=[]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure(
                 stdout_lines=[b"generic error\n", b""],
             )
@@ -516,9 +553,7 @@ class TestWatchCommandNotFound:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(
-            _watch_mod.subprocess, "Popen", side_effect=FileNotFoundError()
-        ):
+        with patch.object(_watch_mod.subprocess, "Popen", side_effect=FileNotFoundError()):
             result = runner.invoke(
                 cli,
                 ["watch", "--", "nonexistent-command-xyz"],
@@ -568,9 +603,11 @@ class TestWatchDeferFirstBehavior:
             for i in range(3)
         ]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             store_instance = MockStore.return_value
 
@@ -590,9 +627,11 @@ class TestWatchDeferFirstBehavior:
         cli = create_cli()
         errors = [_make_parsed_error(resource_address="aws_iam_role.app")]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             MockStore.return_value = MagicMock()
 
@@ -611,9 +650,11 @@ class TestWatchDeferFirstBehavior:
         cli = create_cli()
         errors = [_make_parsed_error()]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure()
             store_instance = MockStore.return_value
 
@@ -641,10 +682,12 @@ class TestWatchDeferFirstBehavior:
         mock_fix = _make_fix()
         errors = [_make_parsed_error()]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "capture_single_error", return_value=mock_fix):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "capture_single_error", return_value=mock_fix),
+        ):
             mp.return_value = mock_popen_failure()
             store_instance = MockStore.return_value
 
@@ -670,8 +713,10 @@ class TestCaptureErrorForWatch:
         err = _make_parsed_error(error_type="terraform")
         mock_fix = _make_fix()
 
-        with patch.object(_watch_mod, "capture_single_error", return_value=mock_fix) as mock_cap, \
-             patch.object(_watch_mod, "capture_single_k8s_error") as mock_k8s:
+        with (
+            patch.object(_watch_mod, "capture_single_error", return_value=mock_fix) as mock_cap,
+            patch.object(_watch_mod, "capture_single_k8s_error") as mock_k8s,
+        ):
             result = _watch_mod._capture_error_for_watch(err, "tag", MagicMock(), MagicMock())
 
         mock_cap.assert_called_once()
@@ -681,8 +726,10 @@ class TestCaptureErrorForWatch:
     def test_kubernetes_routes_to_k8s_capture(self):
         err = _make_parsed_error(error_type="kubectl")
 
-        with patch.object(_watch_mod, "capture_single_error") as mock_tf, \
-             patch.object(_watch_mod, "capture_single_k8s_error", return_value=None) as mock_k8s:
+        with (
+            patch.object(_watch_mod, "capture_single_error") as mock_tf,
+            patch.object(_watch_mod, "capture_single_k8s_error", return_value=None) as mock_k8s,
+        ):
             result = _watch_mod._capture_error_for_watch(err, None, MagicMock(), MagicMock())
 
         mock_k8s.assert_called_once()
@@ -703,17 +750,21 @@ class TestWatchFixSurfacing:
         cli = create_cli()
         mock_fix = _make_fix(resolution="Added role binding for service account")
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[mock_fix]):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[mock_fix]),
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         assert "Known fixes that may help:" in result.output
@@ -724,17 +775,21 @@ class TestWatchFixSurfacing:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[]):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[]),
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         assert "Known fixes" not in result.output
@@ -745,16 +800,19 @@ class TestWatchFixSurfacing:
         cli = create_cli()
         mock_fix = _make_fix(resolution="Add random suffix to bucket name")
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[mock_fix]):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[mock_fix]),
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--no-prompt", "--", "failing-cmd"],
+                cli,
+                ["watch", "--no-prompt", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
             )
 
@@ -767,21 +825,29 @@ class TestWatchFixSurfacing:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=fixes[:2]) as mock_fsf:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=fixes[:2]) as mock_fsf,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         # Verify limit=2 was passed
-        assert mock_fsf.call_args[1].get("limit") == 2 or mock_fsf.call_args[0][3] if len(mock_fsf.call_args[0]) > 3 else mock_fsf.call_args[1].get("limit") == 2
+        assert (
+            mock_fsf.call_args[1].get("limit") == 2 or mock_fsf.call_args[0][3]
+            if len(mock_fsf.call_args[0]) > 3
+            else mock_fsf.call_args[1].get("limit") == 2
+        )
 
     def test_fix_dedup_across_errors(self, tmp_path):
         """Same fix matching 2 errors is shown only once."""
@@ -789,10 +855,12 @@ class TestWatchFixSurfacing:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[shared_fix]):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[shared_fix]),
+        ):
             mp.return_value = mock_popen_failure()
             # Two different errors
             mock_parse.return_value = [
@@ -802,8 +870,10 @@ class TestWatchFixSurfacing:
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         # The fix resolution should appear exactly once
@@ -814,20 +884,26 @@ class TestWatchFixSurfacing:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[]) as mock_fsf:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[]) as mock_fsf,
+        ):
             mp.return_value = mock_popen_failure()
-            mock_parse.return_value = [_make_parsed_error(
-                resource_address="aws_iam_role.app",
-                error_code="AccessDenied",
-            )]
+            mock_parse.return_value = [
+                _make_parsed_error(
+                    resource_address="aws_iam_role.app",
+                    error_code="AccessDenied",
+                )
+            ]
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         mock_fsf.assert_called_once()
@@ -840,17 +916,21 @@ class TestWatchFixSurfacing:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse") as mock_parse, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[]) as mock_fsf:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse") as mock_parse,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[]) as mock_fsf,
+        ):
             mp.return_value = mock_popen_failure()
             mock_parse.return_value = [_make_parsed_error()]
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         mock_fsf.assert_called_once()
@@ -917,8 +997,10 @@ class TestWatchApplyCancelled:
             b"Apply cancelled.\n"
         )
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             mp.return_value = mock_popen_failure(
                 stdout_lines=list(cancelled_output.split(b"\n")[:-1]) + [b""],
             )
@@ -942,8 +1024,10 @@ class TestWatchApplyCancelled:
         runner = CliRunner()
         cli = create_cli()
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             lines = [
                 b"Plan: 2 to add, 0 to change, 0 to destroy.\n",
                 b"Apply cancelled.\n",
@@ -1073,20 +1157,25 @@ class TestWatchClassifierIntegration:
         runner = CliRunner()
         cli = create_cli()
         # MissingRequiredArgument on a terraform_config kind -> self_explanatory
-        errors = [_make_parsed_error(
-            resource_address="variable.foo",
-            error_code="MissingRequiredVariable",
-        )]
+        errors = [
+            _make_parsed_error(
+                resource_address="variable.foo",
+                error_code="MissingRequiredVariable",
+            )
+        ]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "classify_entry", return_value="self_explanatory"):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "classify_entry", return_value="self_explanatory"),
+        ):
             mp.return_value = mock_popen_failure()
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
+                cli,
+                ["watch", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
             )
 
@@ -1098,21 +1187,27 @@ class TestWatchClassifierIntegration:
         """Memory-worthy errors appear in the numbered list."""
         runner = CliRunner()
         cli = create_cli()
-        errors = [_make_parsed_error(
-            resource_address="aws_iam_role.app",
-            error_code="AccessDenied",
-        )]
+        errors = [
+            _make_parsed_error(
+                resource_address="aws_iam_role.app",
+                error_code="AccessDenied",
+            )
+        ]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "classify_entry", return_value="memory_worthy"):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "classify_entry", return_value="memory_worthy"),
+        ):
             mp.return_value = mock_popen_failure()
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         assert "deferred to pending" in result.output
@@ -1125,21 +1220,27 @@ class TestWatchClassifierIntegration:
         cli = create_cli()
         errors = [
             _make_parsed_error(resource_address="aws_iam_role.app", error_code="AccessDenied"),
-            _make_parsed_error(resource_address="variable.foo", error_code="MissingRequiredVariable"),
+            _make_parsed_error(
+                resource_address="variable.foo", error_code="MissingRequiredVariable"
+            ),
         ]
         # Classify first as memory_worthy, second as self_explanatory
         classify_results = iter(["memory_worthy", "self_explanatory"])
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "classify_entry", side_effect=classify_results):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "classify_entry", side_effect=classify_results),
+        ):
             mp.return_value = mock_popen_failure()
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--", "failing-cmd"],
-                obj=make_obj(tmp_path), input="s\n",
+                cli,
+                ["watch", "--", "failing-cmd"],
+                obj=make_obj(tmp_path),
+                input="s\n",
             )
 
         assert "1 deferred to pending" in result.output
@@ -1149,20 +1250,25 @@ class TestWatchClassifierIntegration:
         """--no-prompt shows self-explanatory count line."""
         runner = CliRunner()
         cli = create_cli()
-        errors = [_make_parsed_error(
-            resource_address="variable.foo",
-            error_code="MissingRequiredVariable",
-        )]
+        errors = [
+            _make_parsed_error(
+                resource_address="variable.foo",
+                error_code="MissingRequiredVariable",
+            )
+        ]
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "classify_entry", return_value="self_explanatory"):
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "classify_entry", return_value="self_explanatory"),
+        ):
             mp.return_value = mock_popen_failure()
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--no-prompt", "--", "failing-cmd"],
+                cli,
+                ["watch", "--no-prompt", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
             )
 
@@ -1174,20 +1280,25 @@ class TestWatchClassifierIntegration:
         cli = create_cli()
         errors = [
             _make_parsed_error(resource_address="aws_iam_role.app", error_code="AccessDenied"),
-            _make_parsed_error(resource_address="variable.foo", error_code="MissingRequiredVariable"),
+            _make_parsed_error(
+                resource_address="variable.foo", error_code="MissingRequiredVariable"
+            ),
         ]
         classify_results = iter(["memory_worthy", "self_explanatory"])
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "detect_and_parse", return_value=errors), \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "classify_entry", side_effect=classify_results), \
-             patch.object(_watch_mod, "find_similar_fixes", return_value=[]) as mock_fsf:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "detect_and_parse", return_value=errors),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "classify_entry", side_effect=classify_results),
+            patch.object(_watch_mod, "find_similar_fixes", return_value=[]) as mock_fsf,
+        ):
             mp.return_value = mock_popen_failure()
             MockStore.return_value = MagicMock()
 
             result = runner.invoke(
-                cli, ["watch", "--no-prompt", "--", "failing-cmd"],
+                cli,
+                ["watch", "--no-prompt", "--", "failing-cmd"],
                 obj=make_obj(tmp_path),
             )
 
@@ -1197,6 +1308,7 @@ class TestWatchClassifierIntegration:
     def test_success_auto_resolves_self_explanatory(self, tmp_path):
         """Success path auto-resolves self-explanatory entries from same session."""
         from fixdoc.pending import PendingEntry
+
         runner = CliRunner()
         cli = create_cli()
 
@@ -1223,23 +1335,27 @@ class TestWatchClassifierIntegration:
             worthiness="self_explanatory",
         )
 
-        with patch.object(_watch_mod.subprocess, "Popen") as mp, \
-             patch.object(_watch_mod, "PendingStore") as MockStore, \
-             patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen") as mp,
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+            patch.object(_watch_mod, "resolve_pending_entries") as mock_resolve,
+        ):
             mp.return_value = mock_popen_success()
             instance = MockStore.return_value
             # First call (default): returns memory-worthy only
             # Second call (include_self_explanatory=True): returns self-explanatory
             instance.find_latest_session.side_effect = [
-                [mw_entry],       # default call
-                [se_entry],       # include_self_explanatory=True call
+                [mw_entry],  # default call
+                [se_entry],  # include_self_explanatory=True call
             ]
             instance.find_by_cwd.return_value = []
             mock_resolve.return_value = None
 
             result = runner.invoke(
-                cli, ["watch", "--", "terraform", "apply"],
-                obj=make_obj(tmp_path), input="q\n",
+                cli,
+                ["watch", "--", "terraform", "apply"],
+                obj=make_obj(tmp_path),
+                input="q\n",
             )
 
         # Verify self-explanatory entry was removed
@@ -1312,9 +1428,12 @@ class TestClassifyAndConfirm:
     def test_skips_prompt_for_fix_type(self):
         """Auto-classification as 'fix' skips the override prompt."""
         import importlib
+
         _ch_mod = importlib.import_module("fixdoc.commands.capture_handlers")
-        with patch.object(_ch_mod.click, "prompt") as mock_prompt, \
-             patch.object(_ch_mod.click, "echo"):
+        with (
+            patch.object(_ch_mod.click, "prompt") as mock_prompt,
+            patch.object(_ch_mod.click, "echo"),
+        ):
             result = _ch_mod._classify_and_confirm("Added IAM role binding")
         assert result == "fix"
         mock_prompt.assert_not_called()
@@ -1322,9 +1441,12 @@ class TestClassifyAndConfirm:
     def test_shows_prompt_for_non_fix_type(self):
         """Non-fix detected type shows override prompt."""
         import importlib
+
         _ch_mod = importlib.import_module("fixdoc.commands.capture_handlers")
-        with patch.object(_ch_mod.click, "prompt", return_value="check") as mock_prompt, \
-             patch.object(_ch_mod.click, "echo"):
+        with (
+            patch.object(_ch_mod.click, "prompt", return_value="check") as mock_prompt,
+            patch.object(_ch_mod.click, "echo"),
+        ):
             result = _ch_mod._classify_and_confirm("Verify the IAM roles are correct")
         assert result == "check"
         mock_prompt.assert_called_once()
@@ -1332,8 +1454,11 @@ class TestClassifyAndConfirm:
     def test_shorthand_accepted(self):
         """Shorthand 'p' is accepted as 'playbook'."""
         import importlib
+
         _ch_mod = importlib.import_module("fixdoc.commands.capture_handlers")
-        with patch.object(_ch_mod.click, "prompt", return_value="p") as mock_prompt, \
-             patch.object(_ch_mod.click, "echo"):
+        with (
+            patch.object(_ch_mod.click, "prompt", return_value="p") as mock_prompt,
+            patch.object(_ch_mod.click, "echo"),
+        ):
             result = _ch_mod._classify_and_confirm("Verify the IAM roles")
         assert result == "playbook"

@@ -9,9 +9,17 @@ from ..formatter import fix_to_markdown
 @click.command()
 @click.argument("query")
 @click.option("--limit", "-l", type=int, default=None, help="Max results to show")
-@click.option("--tags", "-t", "tag_filter", default=None, help="Comma-separated tags to filter by (AND by default)")
+@click.option(
+    "--tags",
+    "-t",
+    "tag_filter",
+    default=None,
+    help="Comma-separated tags to filter by (AND by default)",
+)
 @click.option("--any-tags", is_flag=True, help="Match ANY tag instead of ALL tags")
-@click.option("--any", "match_any", is_flag=True, help="Match ANY query word instead of ALL (OR mode)")
+@click.option(
+    "--any", "match_any", is_flag=True, help="Match ANY query word instead of ALL (OR mode)"
+)
 @click.pass_context
 def search(ctx, query: str, limit: int, tag_filter: str, any_tags: bool, match_any: bool):
     """

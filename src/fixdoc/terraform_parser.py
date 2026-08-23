@@ -29,11 +29,9 @@ def parse_terraform_error(output: str) -> Optional[TerraformError]:
     """Parse a terraform error block."""
 
     # Find error block
-    error_match = re.search(
-        r'│?\s*Error:\s*(.+?)(?=\n│?\s*\n|\n\n|$)', output, re.DOTALL
-    )
+    error_match = re.search(r"│?\s*Error:\s*(.+?)(?=\n│?\s*\n|\n\n|$)", output, re.DOTALL)
     if not error_match:
-        error_match = re.search(r'Error:\s*(.+?)(?=\n\n|$)', output, re.DOTALL)
+        error_match = re.search(r"Error:\s*(.+?)(?=\n\n|$)", output, re.DOTALL)
     if not error_match:
         return None
 
@@ -41,7 +39,7 @@ def parse_terraform_error(output: str) -> Optional[TerraformError]:
 
     # Extract resource address with regex
     resource_match = re.search(
-        r'with\s+((?:module\.[^,\s]+\.)?([a-z_]+)\.([a-z0-9_-]+))',
+        r"with\s+((?:module\.[^,\s]+\.)?([a-z_]+)\.([a-z0-9_-]+))",
         output,
         re.IGNORECASE,
     )
@@ -54,7 +52,7 @@ def parse_terraform_error(output: str) -> Optional[TerraformError]:
         resource_type, resource_name, resource_address = "unknown", "unknown", "unknown"
 
     # Extract file and line
-    file_match = re.search(r'on\s+([^\s]+\.tf)\s+line\s+(\d+)', output)
+    file_match = re.search(r"on\s+([^\s]+\.tf)\s+line\s+(\d+)", output)
     file = file_match.group(1) if file_match else None
     line = int(file_match.group(2)) if file_match else None
 
@@ -77,12 +75,12 @@ def parse_terraform_error(output: str) -> Optional[TerraformError]:
 
 
 def _extract_error_code(output: str) -> Optional[str]:
-    ##Extract error code from terraform 
+    ##Extract error code from terraform
     code_match = re.search(r'Code:\s*["\']?([A-Za-z0-9_]+)["\']?', output)
     if code_match:
         return code_match.group(1)
 
-    status_match = re.search(r'Status:\s*(\d+\s*[A-Za-z]+)', output)
+    status_match = re.search(r"Status:\s*(\d+\s*[A-Za-z]+)", output)
     if status_match:
         return status_match.group(1)
 
@@ -90,27 +88,25 @@ def _extract_error_code(output: str) -> Optional[str]:
 
 
 def _extract_error_message(output: str, error_block: str) -> str:
-    ##Extract error code from terraform 
-    msg_match = re.search(
-        r'Message:\s*["\']?(.+?)["\']?(?=\n│|\n\n|$)', output, re.DOTALL
-    )
+    ##Extract error code from terraform
+    msg_match = re.search(r'Message:\s*["\']?(.+?)["\']?(?=\n│|\n\n|$)', output, re.DOTALL)
     if msg_match:
         message = msg_match.group(1).strip()
     else:
-        first_line = error_block.split('\n')[0]
-        message = re.sub(r'^│?\s*Error:\s*', '', first_line).strip()
+        first_line = error_block.split("\n")[0]
+        message = re.sub(r"^│?\s*Error:\s*", "", first_line).strip()
 
-    message = re.sub(r'\s+', ' ', message).strip()
+    message = re.sub(r"\s+", " ", message).strip()
     return message[:500]
 
 
 def parse_terraform_output(output: str) -> list[TerraformError]:
     ##Parse terraform output for all errors.
     errors = []
-    parts = re.split(r'(?=│?\s*Error:)', output)
+    parts = re.split(r"(?=│?\s*Error:)", output)
 
     for part in parts:
-        if 'Error:' in part:
+        if "Error:" in part:
             parsed = parse_terraform_error(part)
             if parsed:
                 errors.append(parsed)
@@ -128,8 +124,14 @@ def parse_terraform_output(output: str) -> list[TerraformError]:
 
 def is_terraform_output(text: str) -> bool:
     indicators = [
-        'Error:', 'azurerm_', 'aws_', 'google_',
-        '.tf line', 'with module.', 'Plan:', 'Apply',
+        "Error:",
+        "azurerm_",
+        "aws_",
+        "google_",
+        ".tf line",
+        "with module.",
+        "Plan:",
+        "Apply",
     ]
     text_lower = text.lower()
     return any(ind.lower() in text_lower for ind in indicators)

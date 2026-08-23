@@ -45,29 +45,43 @@ _SELF_EXPLANATORY_CODES = {
 
 _MEMORY_WORTHY_CODES = {
     # Auth/authz
-    "AccessDenied", "AccessDeniedException", "UnauthorizedAccess",
-    "AuthorizationFailed", "AuthenticationFailed",
+    "AccessDenied",
+    "AccessDeniedException",
+    "UnauthorizedAccess",
+    "AuthorizationFailed",
+    "AuthenticationFailed",
     "RBACDenied",
     # Resource conflict/drift
-    "BucketAlreadyExists", "BucketAlreadyOwnedByYou",
+    "BucketAlreadyExists",
+    "BucketAlreadyOwnedByYou",
     "StorageAccountAlreadyTaken",
-    "ConflictError", "Conflict",
-    "RoleAssignmentExists", "ResourceInUseException",
+    "ConflictError",
+    "Conflict",
+    "RoleAssignmentExists",
+    "ResourceInUseException",
     "ReleaseExists",
     # Infrastructure/networking
-    "InvalidSubnet", "InvalidVpcID",
+    "InvalidSubnet",
+    "InvalidVpcID",
     "DBSubnetGroupDoesNotCoverEnoughAZs",
     "PrincipalNotFound",
     # Capacity/quota
-    "LimitExceeded", "QuotaExceeded", "ServiceQuotaExceededException",
+    "LimitExceeded",
+    "QuotaExceeded",
+    "ServiceQuotaExceededException",
     "SkuNotAvailable",
-    "InsufficientInstanceCapacity", "InstanceLimitExceeded",
+    "InsufficientInstanceCapacity",
+    "InstanceLimitExceeded",
     "StorageQuotaExceeded",
     # K8s critical
-    "CrashLoopBackOff", "OOMKilled",
+    "CrashLoopBackOff",
+    "OOMKilled",
     # K8s operational
-    "ImagePullBackOff", "ErrImagePull",
-    "FailedScheduling", "Timeout", "HookFailed",
+    "ImagePullBackOff",
+    "ErrImagePull",
+    "FailedScheduling",
+    "Timeout",
+    "HookFailed",
     # K8s auth
     "Forbidden",
 }
@@ -278,32 +292,76 @@ _PLAYBOOK_ACTION_CHAIN_RE = re.compile(
 _PLAYBOOK_MIN_STEPS = 3
 
 _CHECK_START_PATTERNS = (
-    "verify", "confirm", "ensure", "check", "make sure", "validate", "assert",
-    "verified", "confirmed", "ensured", "checked", "validated",  # past tense
-    "tested", "test that", "run", "ran",                         # testing
+    "verify",
+    "confirm",
+    "ensure",
+    "check",
+    "make sure",
+    "validate",
+    "assert",
+    "verified",
+    "confirmed",
+    "ensured",
+    "checked",
+    "validated",  # past tense
+    "tested",
+    "test that",
+    "run",
+    "ran",  # testing
 )
 _CHECK_SHORT_THRESHOLD = 120
 
 _CHECK_CONTAINS_PATTERNS = (
-    "confirmed that", "verified that", "tested and confirmed",
-    "make sure that", "ensure that", "validate that",
-    "confirmed it", "verified it",
+    "confirmed that",
+    "verified that",
+    "tested and confirmed",
+    "make sure that",
+    "ensure that",
+    "validate that",
+    "confirmed it",
+    "verified it",
 )
 _CHECK_CONTAINS_THRESHOLD = 200
 
 _INSIGHT_PHRASES = (
-    "root cause", "the reason", "this happens when", "this occurs when",
-    "the issue was that", "turns out", "lesson learned", "important to know",
-    "key takeaway", "note that", "be aware", "caused by", "the problem was",
-    "this is due to", "underlying issue",
-    "the underlying issue", "this was caused by", "contributing factor",
-    "after investigation", "upon review", "analysis showed",
-    "the failure was due to", "traced back to",
+    "root cause",
+    "the reason",
+    "this happens when",
+    "this occurs when",
+    "the issue was that",
+    "turns out",
+    "lesson learned",
+    "important to know",
+    "key takeaway",
+    "note that",
+    "be aware",
+    "caused by",
+    "the problem was",
+    "this is due to",
+    "underlying issue",
+    "the underlying issue",
+    "this was caused by",
+    "contributing factor",
+    "after investigation",
+    "upon review",
+    "analysis showed",
+    "the failure was due to",
+    "traced back to",
 )
 
 _ACTIONABLE_VERBS = (
-    "add", "remove", "change", "update", "set", "create",
-    "delete", "modify", "replace", "configure", "enable", "disable",
+    "add",
+    "remove",
+    "change",
+    "update",
+    "set",
+    "create",
+    "delete",
+    "modify",
+    "replace",
+    "configure",
+    "enable",
+    "disable",
 )
 
 
