@@ -2,25 +2,25 @@
 
 import click
 
-from .config import ConfigManager, resolve_base_path
 from .commands import (
+    analyze,
     capture,
+    delete,
+    demo,
+    edit,
+    import_group,
+    list_fixes,
+    outcome,
+    pending,
+    resolve,
     search,
     show,
-    analyze,
-    list_fixes,
     stats,
-    delete,
-    edit,
     sync,
-    demo,
     watch,
-    pending,
-    import_group,
-    resolve,
-    outcome,
 )
 from .commands.serve import serve
+from .config import ConfigManager, resolve_base_path
 
 
 def create_cli() -> click.Group:
