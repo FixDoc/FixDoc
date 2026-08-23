@@ -27,7 +27,12 @@ from .core.record import confirm_entry, record_entry
 from .core.retrieval import search
 
 PROTOCOL_FALLBACK = "2025-03-26"
-SERVER_VERSION = "0.1.0"
+try:  # single source of truth: the installed package metadata
+    from importlib.metadata import version as _pkg_version
+
+    SERVER_VERSION = _pkg_version("fixdoc")
+except Exception:  # not installed (e.g. running from a raw checkout)
+    SERVER_VERSION = "0.0.0"
 
 # Guard rails for the write path. A looping agent should annoy, not flood:
 # 10 writes/min caps the damage at "a screenful of quarantined entries",
