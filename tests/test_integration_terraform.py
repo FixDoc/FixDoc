@@ -187,11 +187,9 @@ class TestBlastRadiusIntegration:
         """CLI analyze with --format json returns valid JSON."""
         plan_path = PLANS_DIR / "plan_sg_update.json"
         cli = create_cli()
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
 
-        with patch.object(
-            _analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None
-        ):
+        with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None):
             result = runner.invoke(
                 cli,
                 ["analyze", str(plan_path), "--format", "json"],
@@ -242,8 +240,7 @@ class TestErrorParseIntegration:
         assert "BucketAlreadyExists" in tags_str
         assert "terraform" in tags_str
 
-        assert any("unique" in s.lower() or "different name" in s.lower()
-                    for s in err.suggestions)
+        assert any("unique" in s.lower() or "different name" in s.lower() for s in err.suggestions)
 
     def test_iam_access_denied_parse(self):
         """iam_access_denied.txt: AccessDeniedException on aws_lambda_function.api."""
@@ -256,8 +253,7 @@ class TestErrorParseIntegration:
         assert err.cloud_provider == CloudProvider.AWS
         assert err.resource_address == "aws_lambda_function.api"
         assert err.error_code in ("AccessDenied", "AccessDeniedException")
-        assert any("iam" in s.lower() or "permission" in s.lower()
-                    for s in err.suggestions)
+        assert any("iam" in s.lower() or "permission" in s.lower() for s in err.suggestions)
 
     def test_ec2_capacity_parse(self):
         """ec2_capacity.txt: InsufficientInstanceCapacity on aws_instance.web."""
@@ -451,9 +447,11 @@ class TestWatchIntegration:
         cli = create_cli()
         runner = CliRunner()
 
-        with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc),
+            patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             MockStore.return_value = MagicMock()
             result = runner.invoke(
                 cli,
@@ -477,9 +475,11 @@ class TestWatchIntegration:
         cli = create_cli()
         runner = CliRunner()
 
-        with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc),
+            patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             store_instance = MockStore.return_value
             result = runner.invoke(
                 cli,
@@ -503,14 +503,15 @@ class TestWatchIntegration:
         cli = create_cli()
         runner = CliRunner()
 
-        with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc),
+            patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             store_instance = MockStore.return_value
             result = runner.invoke(
                 cli,
-                ["watch", "--tags", "infra-team", "--no-prompt",
-                 "--", "terraform", "apply"],
+                ["watch", "--tags", "infra-team", "--no-prompt", "--", "terraform", "apply"],
                 obj=make_obj(tmp_path),
             )
 
@@ -524,8 +525,10 @@ class TestWatchIntegration:
         cli = create_cli()
         runner = CliRunner()
 
-        with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             instance = MockStore.return_value
             instance.find_latest_session.return_value = []
             result = runner.invoke(
@@ -549,9 +552,11 @@ class TestWatchIntegration:
         cli = create_cli()
         runner = CliRunner()
 
-        with patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc), \
-             patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]), \
-             patch.object(_watch_mod, "PendingStore") as MockStore:
+        with (
+            patch.object(_watch_mod.subprocess, "Popen", return_value=mock_proc),
+            patch.object(_watch_mod, "detect_and_parse", return_value=[parsed_err]),
+            patch.object(_watch_mod, "PendingStore") as MockStore,
+        ):
             MockStore.return_value = MagicMock()
             result = runner.invoke(
                 cli,

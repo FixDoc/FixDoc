@@ -430,16 +430,13 @@ class TestImpactScore:
         node_plain = [ImpactNode("aws_s3_bucket.data", "aws_s3_bucket", "create")]
         score_boundary = compute_impact_score(node_boundary, 0, 0, 0)
         score_plain = compute_impact_score(node_plain, 0, 0, 0)
-        assert score_boundary == 6.0   # 8 * 1.5 * 0.5
-        assert score_plain == 2.4      # 8 * 0.3
+        assert score_boundary == 6.0  # 8 * 1.5 * 0.5
+        assert score_plain == 2.4  # 8 * 0.3
         assert score_boundary > score_plain
 
     def test_greenfield_many_creates_under_100(self):
         """13 all-create resources should NOT score 100 (greenfield discount)."""
-        nodes = [
-            ImpactNode(f"aws_instance.app_{i}", "aws_instance", "create")
-            for i in range(13)
-        ]
+        nodes = [ImpactNode(f"aws_instance.app_{i}", "aws_instance", "create") for i in range(13)]
         score = compute_impact_score(nodes, 0, 0, 0)
         # 13 * 8 * 0.4 = 41.6 — well under 100
         # Severity thresholds: >=75 critical, >=50 high, >=25 medium
@@ -462,10 +459,10 @@ class TestImpactScore:
 
     def test_greenfield_50_boundary_creates_caps_at_medium(self):
         """50 boundary creates (scenario-16 case) must not score CRITICAL."""
-        nodes = (
-            [ImpactNode(f"aws_iam_role.r_{i}", "aws_iam_role", "create") for i in range(50)]
-            + [ImpactNode(f"aws_security_group.sg_{i}", "aws_security_group", "create") for i in range(50)]
-        )
+        nodes = [ImpactNode(f"aws_iam_role.r_{i}", "aws_iam_role", "create") for i in range(50)] + [
+            ImpactNode(f"aws_security_group.sg_{i}", "aws_security_group", "create")
+            for i in range(50)
+        ]
         score = compute_impact_score(nodes, 0, 0, 0)
         assert score <= 45.0
         assert severity_label(score) == "medium"
@@ -475,24 +472,26 @@ class TestImpactScore:
         nodes = [ImpactNode(f"aws_iam_role.r_{i}", "aws_iam_role", "create") for i in range(5)]
         score_no_deps = compute_impact_score(nodes, 0, 0, 0)
         score_with_deps = compute_impact_score(nodes, 10, 0, 0)
-        assert score_no_deps <= 45.0   # cap applies when no external deps
-        assert score_with_deps > score_no_deps   # external deps push it higher
+        assert score_no_deps <= 45.0  # cap applies when no external deps
+        assert score_with_deps > score_no_deps  # external deps push it higher
 
 
 def test_greenfield_dot_indexed_resource_name_mismatch_caps_at_medium(tmp_path):
     """DOT graph nodes for count resources (aws_sg.bulk) must be treated as
     in-plan when the plan has aws_sg.bulk[0..N], so the greenfield cap applies."""
     repo = FixRepository(tmp_path)
-    plan = make_plan([
-        make_resource_change("aws_security_group.bulk[0]", "aws_security_group", ["create"]),
-        make_resource_change("aws_security_group.bulk[1]", "aws_security_group", ["create"]),
-        make_resource_change("aws_security_group.bulk[2]", "aws_security_group", ["create"]),
-        make_resource_change("aws_vpc.main", "aws_vpc", ["create"]),
-    ])
+    plan = make_plan(
+        [
+            make_resource_change("aws_security_group.bulk[0]", "aws_security_group", ["create"]),
+            make_resource_change("aws_security_group.bulk[1]", "aws_security_group", ["create"]),
+            make_resource_change("aws_security_group.bulk[2]", "aws_security_group", ["create"]),
+            make_resource_change("aws_vpc.main", "aws_vpc", ["create"]),
+        ]
+    )
     # terraform graph emits the base name without index brackets for count resources
-    dot_text = '''digraph {
+    dot_text = """digraph {
         "aws_security_group.bulk" -> "aws_vpc.main"
-    }'''
+    }"""
     result = analyze_change_impact(plan, dot_text=dot_text, repo=repo)
     assert result.score <= 45.0, f"Expected MEDIUM cap, got {result.score}"
     assert result.severity != "critical"
@@ -528,11 +527,7 @@ class TestRedaction:
         assert result["after"]["name"] == "mydb"
 
     def test_nested_values(self):
-        change = {
-            "after": {
-                "config": {"secret_key": "abc", "timeout": 30}
-            }
-        }
+        change = {"after": {"config": {"secret_key": "abc", "timeout": 30}}}
         result = redact_plan_values(change)
         assert result["after"]["config"]["secret_key"] == "[REDACTED]"
         assert result["after"]["config"]["timeout"] == 30
@@ -556,8 +551,7 @@ class TestHistoryPrior:
         """Boundary node + category-tagged fix → match returned."""
         repo = FixRepository(tmp_path)
         node = ImpactNode("aws_iam_role.app", "aws_iam_role", "update")
-        repo.save(Fix(issue="IAM role issue", resolution="Fixed it",
-                      tags="aws_iam_role, iam"))
+        repo.save(Fix(issue="IAM role issue", resolution="Fixed it", tags="aws_iam_role, iam"))
         count, matches = compute_history_prior(["aws_iam_role"], [node], repo)
         assert count > 0
         assert len(matches) == 1
@@ -590,13 +584,9 @@ class TestHistoryPrior:
             ImpactNode("aws_iam_role.app", "aws_iam_role", "delete"),
             ImpactNode("aws_security_group.web", "aws_security_group", "update"),
         ]
-        repo.save(Fix(issue="IAM issue", resolution="Fix",
-                      tags="aws_iam_role, iam"))
-        repo.save(Fix(issue="SG issue", resolution="Fix",
-                      tags="aws_security_group, networking"))
-        count, matches = compute_history_prior(
-            ["aws_iam_role", "aws_security_group"], nodes, repo
-        )
+        repo.save(Fix(issue="IAM issue", resolution="Fix", tags="aws_iam_role, iam"))
+        repo.save(Fix(issue="SG issue", resolution="Fix", tags="aws_security_group, networking"))
+        count, matches = compute_history_prior(["aws_iam_role", "aws_security_group"], nodes, repo)
         assert len(matches) == 2
 
     # -----------------------------------------------------------------------
@@ -607,8 +597,7 @@ class TestHistoryPrior:
         """Non-boundary update + no address in fix text → no matches (gate closed)."""
         repo = FixRepository(tmp_path)
         node = ImpactNode("aws_instance.app_a", "aws_instance", "update")
-        repo.save(Fix(issue="instance type issue", resolution="Fix",
-                      tags="aws_instance, storage"))
+        repo.save(Fix(issue="instance type issue", resolution="Fix", tags="aws_instance, storage"))
         count, matches = compute_history_prior(["aws_instance"], [node], repo)
         assert count == 0
         assert matches == []
@@ -617,11 +606,13 @@ class TestHistoryPrior:
         """Fix whose issue text contains the changed address surfaces via Phase 1."""
         repo = FixRepository(tmp_path)
         node = ImpactNode("aws_instance.app_a", "aws_instance", "update")
-        repo.save(Fix(
-            issue="aws_instance.app_a ran out of capacity",
-            resolution="Changed AZ",
-            tags="aws_instance",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_instance.app_a ran out of capacity",
+                resolution="Changed AZ",
+                tags="aws_instance",
+            )
+        )
         count, matches = compute_history_prior(["aws_instance"], [node], repo)
         assert count == 1
         assert len(matches) == 1
@@ -630,8 +621,7 @@ class TestHistoryPrior:
         """Fix tagged only with resource-type (no category tag) is excluded even under gate."""
         repo = FixRepository(tmp_path)
         node = ImpactNode("aws_security_group.web", "aws_security_group", "update")
-        repo.save(Fix(issue="sg update failed", resolution="Fix",
-                      tags="aws_security_group"))
+        repo.save(Fix(issue="sg update failed", resolution="Fix", tags="aws_security_group"))
         count, matches = compute_history_prior(["aws_security_group"], [node], repo)
         assert count == 0
         assert matches == []
@@ -662,11 +652,13 @@ class TestHistoryPrior:
         repo = FixRepository(tmp_path)
         node = ImpactNode("aws_security_group.web", "aws_security_group", "update")
         for name in ("TimeoutError", "ConnectError", "QuotaError", "AuthError", "NetworkError"):
-            repo.save(Fix(
-                issue=f"{name} on security group update",
-                resolution="Fixed it",
-                tags="aws_security_group, networking",
-            ))
+            repo.save(
+                Fix(
+                    issue=f"{name} on security group update",
+                    resolution="Fixed it",
+                    tags="aws_security_group, networking",
+                )
+            )
         count, matches = compute_history_prior(["aws_security_group"], [node], repo)
         assert count == 3
         assert len(matches) == 3
@@ -720,9 +712,11 @@ class TestAnalyzeCommand:
         return str(plan_file)
 
     def test_human_format_output(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -740,12 +734,14 @@ class TestAnalyzeCommand:
         assert "Risk Score:" in result.output
 
     def test_json_format_output(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         cli = create_cli()
 
         with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None):
@@ -763,9 +759,11 @@ class TestAnalyzeCommand:
 
     def test_no_changes_message(self, tmp_path):
         """Plan with only no-op changes shows no-changes message."""
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["no-op"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["no-op"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -782,10 +780,12 @@ class TestAnalyzeCommand:
         assert "No changes to analyze" in result.output
 
     def test_graph_flag(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-            make_resource_change("aws_lambda_function.api", "aws_lambda_function", ["update"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+                make_resource_change("aws_lambda_function.api", "aws_lambda_function", ["update"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         dot_file = tmp_path / "graph.dot"
@@ -803,9 +803,11 @@ class TestAnalyzeCommand:
         assert result.exit_code == 0
 
     def test_auto_terraform_graph(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -821,9 +823,11 @@ class TestAnalyzeCommand:
         assert result.exit_code == 0
 
     def test_terraform_not_on_path(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -854,9 +858,11 @@ class TestAnalyzeCommand:
         assert result.exit_code == 1
 
     def test_max_depth_option(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -872,9 +878,11 @@ class TestAnalyzeCommand:
         assert result.exit_code == 0
 
     def test_summary_flag(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -891,9 +899,11 @@ class TestAnalyzeCommand:
         assert "Risk:" in result.output
 
     def test_match_flag_strict(self, tmp_path):
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -910,12 +920,14 @@ class TestAnalyzeCommand:
 
     def test_replace_action_detected(self, tmp_path):
         """create+delete is detected as replace."""
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create", "delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create", "delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         cli = create_cli()
 
         with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None):
@@ -945,9 +957,11 @@ class TestExitOnFlag:
 
     def test_exit_on_not_provided_exits_zero(self, tmp_path):
         """Without --exit-on, command always exits 0."""
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -964,9 +978,11 @@ class TestExitOnFlag:
 
     def test_exit_on_low_triggers_on_any_change(self, tmp_path):
         """--exit-on low triggers exit 1 for any non-trivial change."""
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -984,9 +1000,11 @@ class TestExitOnFlag:
 
     def test_exit_on_critical_passes_for_low_score(self, tmp_path):
         """--exit-on critical passes for a low-severity change."""
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -1003,9 +1021,11 @@ class TestExitOnFlag:
 
     def test_exit_on_still_prints_output(self, tmp_path):
         """Output is printed before exit 1."""
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -1024,12 +1044,14 @@ class TestExitOnFlag:
 
     def test_exit_on_json_still_prints_output(self, tmp_path):
         """JSON output is printed before exit 1."""
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         cli = create_cli()
 
         with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None):
@@ -1046,9 +1068,11 @@ class TestExitOnFlag:
 
     def test_exit_on_invalid_choice(self, tmp_path):
         """Invalid --exit-on value is rejected by Click."""
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         plan_file = self._write_plan(tmp_path, plan)
 
         runner = CliRunner()
@@ -1075,16 +1099,20 @@ class TestEndToEnd:
     def test_iam_delete_scenario(self, tmp_path):
         """Full IAM role deletion with graph and history."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_iam_role.app_role deletion broke Lambda functions",
-            resolution="Recreated role with matching policy",
-            tags="aws_iam_role,aws,iam",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_iam_role.app_role deletion broke Lambda functions",
+                resolution="Recreated role with matching policy",
+                tags="aws_iam_role,aws,iam",
+            )
+        )
 
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app_role", "aws_iam_role", ["delete"]),
-            make_resource_change("aws_lambda_function.api", "aws_lambda_function", ["update"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app_role", "aws_iam_role", ["delete"]),
+                make_resource_change("aws_lambda_function.api", "aws_lambda_function", ["update"]),
+            ]
+        )
 
         dot = """digraph {
     "aws_lambda_function.api" -> "aws_iam_role.app_role"
@@ -1103,10 +1131,12 @@ class TestEndToEnd:
         """Security group modification with downstream resources."""
         repo = FixRepository(tmp_path)
 
-        plan = make_plan([
-            make_resource_change("aws_security_group.main", "aws_security_group", ["update"]),
-            make_resource_change("aws_instance.web", "aws_instance", ["update"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_security_group.main", "aws_security_group", ["update"]),
+                make_resource_change("aws_instance.web", "aws_instance", ["update"]),
+            ]
+        )
 
         dot = """digraph {
     "aws_instance.web" -> "aws_security_group.main"
@@ -1130,11 +1160,13 @@ class TestEndToEnd:
         Expected impacted: aws_iam_instance_profile.profile (L1), aws_instance.app (L2)
         """
         repo = FixRepository(tmp_path)
-        plan = make_plan([
-            make_resource_change(
-                "aws_iam_role_policy.inline", "aws_iam_role_policy", ["update"]
-            ),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change(
+                    "aws_iam_role_policy.inline", "aws_iam_role_policy", ["update"]
+                ),
+            ]
+        )
         dot = """digraph G {
   rankdir = "RL";
   "aws_iam_instance_profile.profile" -> "aws_iam_role.app_role";
@@ -1151,9 +1183,11 @@ class TestEndToEnd:
         """Plan with only no-op changes has zero score."""
         repo = FixRepository(tmp_path)
 
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["no-op"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["no-op"]),
+            ]
+        )
 
         result = analyze_change_impact(plan, repo)
 
@@ -1223,11 +1257,13 @@ class TestFindResourcePriorFixes:
 
     def test_tag_match_returns_score_100(self, tmp_path):
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="S3 bucket ACL error",
-            resolution="Set acl to private",
-            tags="aws_s3_bucket,storage",
-        ))
+        repo.save(
+            Fix(
+                issue="S3 bucket ACL error",
+                resolution="Set acl to private",
+                tags="aws_s3_bucket,storage",
+            )
+        )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo)
         assert len(result) == 1
@@ -1236,11 +1272,13 @@ class TestFindResourcePriorFixes:
 
     def test_text_match_returns_score_60(self, tmp_path):
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket versioning broke after update",
-            resolution="Re-enabled versioning",
-            tags="storage",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket versioning broke after update",
+                resolution="Re-enabled versioning",
+                tags="storage",
+            )
+        )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo)
         assert len(result) == 1
@@ -1250,33 +1288,39 @@ class TestFindResourcePriorFixes:
     def test_substring_not_matched_word_boundary(self, tmp_path):
         """aws_s3_bucket should NOT match aws_s3_bucket_policy via text search."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket_policy denied access",
-            resolution="Updated bucket policy",
-            tags="storage",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket_policy denied access",
+                resolution="Updated bucket policy",
+                tags="storage",
+            )
+        )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo)
         assert result == []
 
     def test_tag_only_excludes_text_matches(self, tmp_path):
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket versioning error",
-            resolution="Fixed versioning",
-            tags="storage",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket versioning error",
+                resolution="Fixed versioning",
+                tags="storage",
+            )
+        )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo, tag_only=True)
         assert result == []
 
     def test_same_fix_two_resources_one_entry(self, tmp_path):
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="S3 bucket ACL error",
-            resolution="Set acl to private",
-            tags="aws_s3_bucket,storage",
-        ))
+        repo.save(
+            Fix(
+                issue="S3 bucket ACL error",
+                resolution="Set acl to private",
+                tags="aws_s3_bucket,storage",
+            )
+        )
         nodes = [
             _make_node("aws_s3_bucket.data", "aws_s3_bucket"),
             _make_node("aws_s3_bucket.logs", "aws_s3_bucket"),
@@ -1288,11 +1332,13 @@ class TestFindResourcePriorFixes:
     def test_max_total_limits_results(self, tmp_path):
         repo = FixRepository(tmp_path)
         for i in range(5):
-            repo.save(Fix(
-                issue=f"S3 bucket error {i}",
-                resolution=f"Fix {i}",
-                tags="aws_s3_bucket",
-            ))
+            repo.save(
+                Fix(
+                    issue=f"S3 bucket error {i}",
+                    resolution=f"Fix {i}",
+                    tags="aws_s3_bucket",
+                )
+            )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo, max_total=2)
         assert len(result) == 2
@@ -1300,16 +1346,20 @@ class TestFindResourcePriorFixes:
     def test_tag_match_before_text_match(self, tmp_path):
         """tag_match (score=100) fix should sort before text_match (score=60)."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket text match only",
-            resolution="Fix text",
-            tags="storage",
-        ))
-        repo.save(Fix(
-            issue="S3 tag match fix",
-            resolution="Fix tag",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket text match only",
+                resolution="Fix text",
+                tags="storage",
+            )
+        )
+        repo.save(
+            Fix(
+                issue="S3 tag match fix",
+                resolution="Fix tag",
+                tags="aws_s3_bucket",
+            )
+        )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo)
         assert result[0]["match_reason"] == "tag_match"
@@ -1318,6 +1368,7 @@ class TestFindResourcePriorFixes:
     def test_tie_breaking_same_score_by_created_at_desc_then_id_asc(self, tmp_path):
         """Same score → sorted by created_at DESC then id ASC."""
         import time
+
         repo = FixRepository(tmp_path)
         # Save two fixes with tag match — will have same score
         fix_a = Fix(issue="First fix", resolution="Res A", tags="aws_s3_bucket")
@@ -1333,11 +1384,13 @@ class TestFindResourcePriorFixes:
 
     def test_noop_node_excluded(self, tmp_path):
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="S3 bucket error",
-            resolution="Fix it",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="S3 bucket error",
+                resolution="Fix it",
+                tags="aws_s3_bucket",
+            )
+        )
         nodes = [
             _make_node("aws_s3_bucket.data", "aws_s3_bucket", action="no-op"),
         ]
@@ -1351,7 +1404,9 @@ class TestFindResourcePriorFixes:
             _make_node("aws_s3_bucket.a", "aws_s3_bucket"),
             _make_node("aws_s3_bucket.b", "aws_s3_bucket"),
         ]
-        with patch.object(repo, "find_by_resource_type", wraps=repo.find_by_resource_type) as mock_find:
+        with patch.object(
+            repo, "find_by_resource_type", wraps=repo.find_by_resource_type
+        ) as mock_find:
             find_resource_prior_fixes(nodes, repo, tag_only=False)
             # find_by_resource_type deduped by unique rt — called once, not twice
             assert mock_find.call_count == 1
@@ -1363,18 +1418,22 @@ class TestFindResourcePriorFixes:
             _make_node("aws_s3_bucket.a", "aws_s3_bucket"),
             _make_node("aws_instance.b", "aws_instance"),
         ]
-        with patch.object(repo, "find_by_resource_type", wraps=repo.find_by_resource_type) as mock_find:
+        with patch.object(
+            repo, "find_by_resource_type", wraps=repo.find_by_resource_type
+        ) as mock_find:
             find_resource_prior_fixes(nodes, repo, tag_only=True)
             assert mock_find.call_count == 2  # one per unique rt
 
     def test_punctuation_boundary_matches(self, tmp_path):
         """Word-boundary regex matches resource type adjacent to punctuation."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue='Created "aws_s3_bucket", but ACL denied',
-            resolution="Set correct ACL",
-            tags="storage",
-        ))
+        repo.save(
+            Fix(
+                issue='Created "aws_s3_bucket", but ACL denied',
+                resolution="Set correct ACL",
+                tags="storage",
+            )
+        )
         nodes = [_make_node("aws_s3_bucket.data", "aws_s3_bucket")]
         result = find_resource_prior_fixes(nodes, repo)
         assert len(result) == 1
@@ -1390,7 +1449,7 @@ class TestFindResourcePriorFixes:
         repo.save(fix)
         nodes = [
             _make_node("aws_s3_bucket.data", "aws_s3_bucket"),  # tag_match for this fix
-            _make_node("aws_instance.web", "aws_instance"),      # text_match for this fix
+            _make_node("aws_instance.web", "aws_instance"),  # text_match for this fix
         ]
         result = find_resource_prior_fixes(nodes, repo)
         assert len(result) == 1
@@ -1408,32 +1467,46 @@ class TestAnalyzeChangeImpactResourceWarnings:
 
     def test_resource_warnings_populated(self, tmp_path):
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket.data creation failed with BucketAlreadyExists",
-            resolution="Fixed IAM policy",
-            tags="aws_s3_bucket",
-        ))
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket.data creation failed with BucketAlreadyExists",
+                resolution="Fixed IAM policy",
+                tags="aws_s3_bucket",
+            )
+        )
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo)
         assert len(result.resource_warnings) >= 1
         # match_reason is now a dict with signal field
         mr = result.resource_warnings[0]["match_reason"]
         assert isinstance(mr, dict)
-        assert mr["signal"] in ("error_code", "address", "changed_attribute", "change_domain", "attribute_category")
+        assert mr["signal"] in (
+            "error_code",
+            "address",
+            "changed_attribute",
+            "change_domain",
+            "attribute_category",
+        )
 
     def test_tag_only_passed_through(self, tmp_path):
         """tag_only flag still accepted (backward compat); text matches now surfaced as low confidence."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket caused ACL issue",
-            resolution="Fixed it",
-            tags="storage",
-        ))
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket caused ACL issue",
+                resolution="Fixed it",
+                tags="storage",
+            )
+        )
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo, tag_only=True)
         # Under new unified matching, text matches are surfaced as low confidence
         if result.resource_warnings:
@@ -1442,14 +1515,18 @@ class TestAnalyzeChangeImpactResourceWarnings:
     def test_max_resource_warnings_respected(self, tmp_path):
         repo = FixRepository(tmp_path)
         for i in range(5):
-            repo.save(Fix(
-                issue=f"aws_s3_bucket.data error with unique code Error{i}Code for case {i}",
-                resolution=f"Fix {i}",
-                tags="aws_s3_bucket",
-            ))
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+            repo.save(
+                Fix(
+                    issue=f"aws_s3_bucket.data error with unique code Error{i}Code for case {i}",
+                    resolution=f"Fix {i}",
+                    tags="aws_s3_bucket",
+                )
+            )
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo, max_resource_warnings=3)
         assert len(result.resource_warnings) <= 3
 
@@ -1464,11 +1541,23 @@ def _make_result_with_warnings(warnings):
     return ImpactResult(
         score=8.0,
         severity="low",
-        changes=[{"address": "aws_s3_bucket.data", "resource_type": "aws_s3_bucket",
-                  "action": "create", "cloud_provider": "aws",
-                  "is_control_point": False, "category": "", "criticality": 0.0}],
-        plan_summary={"total_changes": 1, "control_points": 0,
-                      "affected_resources": 0, "by_action": {"create": 1}},
+        changes=[
+            {
+                "address": "aws_s3_bucket.data",
+                "resource_type": "aws_s3_bucket",
+                "action": "create",
+                "cloud_provider": "aws",
+                "is_control_point": False,
+                "category": "",
+                "criticality": 0.0,
+            }
+        ],
+        plan_summary={
+            "total_changes": 1,
+            "control_points": 0,
+            "affected_resources": 0,
+            "by_action": {"create": 1},
+        },
         resource_warnings=warnings,
     )
 
@@ -1476,13 +1565,16 @@ def _make_result_with_warnings(warnings):
 def _make_changed():
     from fixdoc.commands.analyze import PlanResource
     from fixdoc.parsers.base import CloudProvider
-    return [PlanResource(
-        address="aws_s3_bucket.data",
-        resource_type="aws_s3_bucket",
-        name="data",
-        cloud_provider=CloudProvider.AWS,
-        action="create",
-    )]
+
+    return [
+        PlanResource(
+            address="aws_s3_bucket.data",
+            resource_type="aws_s3_bucket",
+            name="data",
+            cloud_provider=CloudProvider.AWS,
+            action="create",
+        )
+    ]
 
 
 class TestAnalyzeFormatHuman:
@@ -1490,17 +1582,20 @@ class TestAnalyzeFormatHuman:
 
     def test_section_rendered_when_warnings_present(self):
         from fixdoc.commands.analyze import _format_human
-        warnings = [{
-            "id": "abcdef1234567890",
-            "short_id": "abcdef12",
-            "issue": "S3 bucket ACL error",
-            "resolution": "Set to private",
-            "tags": "aws_s3_bucket",
-            "created_at": "2024-01-15T10:00:00",
-            "match_reason": "tag_match",
-            "score": 100,
-            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
-        }]
+
+        warnings = [
+            {
+                "id": "abcdef1234567890",
+                "short_id": "abcdef12",
+                "issue": "S3 bucket ACL error",
+                "resolution": "Set to private",
+                "tags": "aws_s3_bucket",
+                "created_at": "2024-01-15T10:00:00",
+                "match_reason": "tag_match",
+                "score": 100,
+                "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         output = _format_human(result, _make_changed())
         assert "Relevant Past Fixes" in output
@@ -1509,20 +1604,23 @@ class TestAnalyzeFormatHuman:
 
     def test_multi_resource_applies_to_shown(self):
         from fixdoc.commands.analyze import _format_human
-        warnings = [{
-            "id": "abcdef1234567890",
-            "short_id": "abcdef12",
-            "issue": "S3 ACL error",
-            "resolution": "Fixed",
-            "tags": "",
-            "created_at": "2024-01-15",
-            "match_reason": "tag_match",
-            "score": 100,
-            "matched_resources": [
-                {"address": "aws_s3_bucket.a", "action": "create"},
-                {"address": "aws_s3_bucket.b", "action": "create"},
-            ],
-        }]
+
+        warnings = [
+            {
+                "id": "abcdef1234567890",
+                "short_id": "abcdef12",
+                "issue": "S3 ACL error",
+                "resolution": "Fixed",
+                "tags": "",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "score": 100,
+                "matched_resources": [
+                    {"address": "aws_s3_bucket.a", "action": "create"},
+                    {"address": "aws_s3_bucket.b", "action": "create"},
+                ],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         output = _format_human(result, _make_changed())
         assert "Applies to:" in output
@@ -1530,45 +1628,56 @@ class TestAnalyzeFormatHuman:
     def test_single_resource_applies_to_shown(self):
         # "Applies to" is now always shown when matched_resources is non-empty
         from fixdoc.commands.analyze import _format_human
-        warnings = [{
-            "id": "abcdef1234567890",
-            "short_id": "abcdef12",
-            "issue": "S3 ACL error",
-            "resolution": "Fixed",
-            "tags": "",
-            "created_at": "2024-01-15",
-            "match_reason": "tag_match",
-            "score": 100,
-            "matched_resources": [
-                {"address": "aws_s3_bucket.a", "action": "create"},
-            ],
-        }]
+
+        warnings = [
+            {
+                "id": "abcdef1234567890",
+                "short_id": "abcdef12",
+                "issue": "S3 ACL error",
+                "resolution": "Fixed",
+                "tags": "",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "score": 100,
+                "matched_resources": [
+                    {"address": "aws_s3_bucket.a", "action": "create"},
+                ],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         output = _format_human(result, _make_changed())
         assert "Applies to:" in output
 
     def test_empty_warnings_section_not_rendered(self):
         from fixdoc.commands.analyze import _format_human
+
         result = _make_result_with_warnings([])
         output = _format_human(result, _make_changed())
         assert "Relevant Past Fixes" not in output
 
     def test_verbose_shows_score_and_tags(self):
         from fixdoc.commands.analyze import _format_human
-        warnings = [{
-            "id": "abcdef1234567890",
-            "short_id": "abcdef12",
-            "issue": "S3 ACL error",
-            "resolution": "Set to private",
-            "tags": "aws_s3_bucket,storage",
-            "created_at": "2024-01-15",
-            "match_reason": {"signal": "resource_type_tag", "detail": "aws_s3_bucket",
-                           "resource_type": "aws_s3_bucket", "confidence": "medium",
-                           "supporting_signals": []},
-            "confidence": "medium",
-            "score": 100,
-            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
-        }]
+
+        warnings = [
+            {
+                "id": "abcdef1234567890",
+                "short_id": "abcdef12",
+                "issue": "S3 ACL error",
+                "resolution": "Set to private",
+                "tags": "aws_s3_bucket,storage",
+                "created_at": "2024-01-15",
+                "match_reason": {
+                    "signal": "resource_type_tag",
+                    "detail": "aws_s3_bucket",
+                    "resource_type": "aws_s3_bucket",
+                    "confidence": "medium",
+                    "supporting_signals": [],
+                },
+                "confidence": "medium",
+                "score": 100,
+                "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         output = _format_human(result, _make_changed(), verbose=True)
         assert "Score: 100" in output
@@ -1576,20 +1685,27 @@ class TestAnalyzeFormatHuman:
 
     def test_nonverbose_hides_score_and_tags(self):
         from fixdoc.commands.analyze import _format_human
-        warnings = [{
-            "id": "abcdef1234567890",
-            "short_id": "abcdef12",
-            "issue": "S3 ACL error",
-            "resolution": "Set to private",
-            "tags": "aws_s3_bucket,storage",
-            "created_at": "2024-01-15",
-            "match_reason": {"signal": "resource_type_tag", "detail": "aws_s3_bucket",
-                           "resource_type": "aws_s3_bucket", "confidence": "medium",
-                           "supporting_signals": []},
-            "confidence": "medium",
-            "score": 100,
-            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
-        }]
+
+        warnings = [
+            {
+                "id": "abcdef1234567890",
+                "short_id": "abcdef12",
+                "issue": "S3 ACL error",
+                "resolution": "Set to private",
+                "tags": "aws_s3_bucket,storage",
+                "created_at": "2024-01-15",
+                "match_reason": {
+                    "signal": "resource_type_tag",
+                    "detail": "aws_s3_bucket",
+                    "resource_type": "aws_s3_bucket",
+                    "confidence": "medium",
+                    "supporting_signals": [],
+                },
+                "confidence": "medium",
+                "score": 100,
+                "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         output = _format_human(result, _make_changed(), verbose=False)
         assert "     Score:" not in output
@@ -1598,18 +1714,21 @@ class TestAnalyzeFormatHuman:
     def test_matched_resources_shows_first_only(self):
         # Grouped output shows only the first matched_resource in "Applies to"
         from fixdoc.commands.analyze import _format_human
+
         matched = [{"address": f"aws_s3_bucket.b{i}", "action": "create"} for i in range(12)]
-        warnings = [{
-            "id": "abcdef1234567890",
-            "short_id": "abcdef12",
-            "issue": "S3 ACL error",
-            "resolution": "Fixed",
-            "tags": "",
-            "created_at": "2024-01-15",
-            "match_reason": "tag_match",
-            "score": 100,
-            "matched_resources": matched,
-        }]
+        warnings = [
+            {
+                "id": "abcdef1234567890",
+                "short_id": "abcdef12",
+                "issue": "S3 ACL error",
+                "resolution": "Fixed",
+                "tags": "",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "score": 100,
+                "matched_resources": matched,
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         output = _format_human(result, _make_changed())
         assert "Applies to: aws_s3_bucket.b0 (create)" in output
@@ -1625,23 +1744,27 @@ class TestAnalyzeFormatJson:
 
     def test_json_contains_resource_warnings_key(self):
         from fixdoc.commands.analyze import _format_json
+
         result = _make_result_with_warnings([])
         data = json.loads(_format_json(result))
         assert "resource_warnings" in data
 
     def test_json_resource_warnings_entry_fields(self):
         from fixdoc.commands.analyze import _format_json
-        warnings = [{
-            "id": "abcdef1234567890abcd",
-            "short_id": "abcdef12",
-            "issue": "S3 error",
-            "resolution": "Fixed",
-            "tags": "aws_s3_bucket",
-            "created_at": "2024-01-15",
-            "match_reason": "tag_match",
-            "score": 100,
-            "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
-        }]
+
+        warnings = [
+            {
+                "id": "abcdef1234567890abcd",
+                "short_id": "abcdef12",
+                "issue": "S3 error",
+                "resolution": "Fixed",
+                "tags": "aws_s3_bucket",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "score": 100,
+                "matched_resources": [{"address": "aws_s3_bucket.data", "action": "create"}],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         data = json.loads(_format_json(result))
         assert len(data["resource_warnings"]) == 1
@@ -1671,9 +1794,13 @@ class TestIAMSensitivity:
         assert _extract_principals(policy) == {"ec2.amazonaws.com"}
 
     def test_extract_principals_list_service(self):
-        policy = json.dumps({"Statement": [{"Principal": {
-            "Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"]
-        }}]})
+        policy = json.dumps(
+            {
+                "Statement": [
+                    {"Principal": {"Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"]}}
+                ]
+            }
+        )
         assert _extract_principals(policy) == {"ec2.amazonaws.com", "lambda.amazonaws.com"}
 
     def test_extract_principals_wildcard_string(self):
@@ -1681,35 +1808,61 @@ class TestIAMSensitivity:
         assert "*" in _extract_principals(policy)
 
     def test_extract_principals_cross_account(self):
-        policy = json.dumps({"Statement": [{"Principal": {"AWS": "arn:aws:iam::123456789012:root"}}]})
+        policy = json.dumps(
+            {"Statement": [{"Principal": {"AWS": "arn:aws:iam::123456789012:root"}}]}
+        )
         assert "arn:aws:iam::123456789012:root" in _extract_principals(policy)
 
     def test_iam_sensitivity_service_principal_added(self):
         """before: ec2 only; after: ec2 + lambda → +8 field +10 service = 18."""
-        before_policy = json.dumps({"Statement": [{"Effect": "Allow",
-            "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]})
-        after_policy = json.dumps({"Statement": [{"Effect": "Allow",
-            "Principal": {"Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"]},
-            "Action": "sts:AssumeRole"}]})
-        cb = {"before": {"assume_role_policy": before_policy},
-              "after":  {"assume_role_policy": after_policy}}
+        before_policy = json.dumps(
+            {
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "ec2.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ]
+            }
+        )
+        after_policy = json.dumps(
+            {
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"]},
+                        "Action": "sts:AssumeRole",
+                    }
+                ]
+            }
+        )
+        cb = {
+            "before": {"assume_role_policy": before_policy},
+            "after": {"assume_role_policy": after_policy},
+        }
         delta, reason, wildcard = _compute_iam_sensitivity(cb)
-        assert delta == 18.0   # +8 sensitive field + +10 service principal
+        assert delta == 18.0  # +8 sensitive field + +10 service principal
         assert wildcard is False
         assert "lambda.amazonaws.com" in reason
 
     def test_iam_sensitivity_tag_change_only(self):
         """Only tags changed → delta=0, no wildcard."""
-        cb = {"before": {"tags": {"env": "prod"}, "assume_role_policy": "{}"},
-              "after":  {"tags": {"env": "staging"}, "assume_role_policy": "{}"}}
+        cb = {
+            "before": {"tags": {"env": "prod"}, "assume_role_policy": "{}"},
+            "after": {"tags": {"env": "staging"}, "assume_role_policy": "{}"},
+        }
         delta, _, wildcard = _compute_iam_sensitivity(cb)
         assert delta == 0.0
         assert wildcard is False
 
     def test_wildcard_trust_forces_high_floor(self):
         """ImpactNode with wildcard_trust=True forces score >= 50 (HIGH)."""
-        nodes = [ImpactNode("aws_iam_role.r", "aws_iam_role", "update",
-                           sensitivity_delta=0, wildcard_trust=True)]
+        nodes = [
+            ImpactNode(
+                "aws_iam_role.r", "aws_iam_role", "update", sensitivity_delta=0, wildcard_trust=True
+            )
+        ]
         score = compute_impact_score(nodes, 0, 0, 0)
         assert score >= 50.0
         assert severity_label(score) == "high"
@@ -1737,8 +1890,11 @@ class TestBuildScoreExplanation:
 
     def test_iam_sensitivity_bullet(self):
         node = ImpactNode(
-            "aws_iam_role.api", "aws_iam_role", "update",
-            sensitivity_delta=18.0, sensitivity_reason="lambda.amazonaws.com",
+            "aws_iam_role.api",
+            "aws_iam_role",
+            "update",
+            sensitivity_delta=18.0,
+            sensitivity_reason="lambda.amazonaws.com",
         )
         bullets = build_score_explanation([node], 0, 0, 0)
         iam_bullets = [b for b in bullets if b.kind == "iam"]
@@ -1748,8 +1904,11 @@ class TestBuildScoreExplanation:
 
     def test_wildcard_trust_modifier_bullet(self):
         node = ImpactNode(
-            "aws_iam_role.api", "aws_iam_role", "update",
-            sensitivity_delta=8.0, wildcard_trust=True,
+            "aws_iam_role.api",
+            "aws_iam_role",
+            "update",
+            sensitivity_delta=8.0,
+            wildcard_trust=True,
         )
         bullets = build_score_explanation([node], 0, 0, 0)
         modifier_bullets = [b for b in bullets if b.kind == "modifier"]
@@ -1789,14 +1948,19 @@ class TestBuildScoreExplanation:
         assert len(modifier_bullets) == 1
         assert "greenfield" in modifier_bullets[0].label.lower()
         # No greenfield cap when there ARE downstream resources
-        bullets_with_impact = build_score_explanation(nodes, l1_count=2, l2_count=0, history_count=0)
+        bullets_with_impact = build_score_explanation(
+            nodes, l1_count=2, l2_count=0, history_count=0
+        )
         cap_modifiers = [b for b in bullets_with_impact if b.kind == "modifier"]
         assert len(cap_modifiers) == 0
 
     def test_kinds_are_correct(self):
         node = ImpactNode(
-            "aws_iam_role.api", "aws_iam_role", "delete",
-            sensitivity_delta=8.0, wildcard_trust=True,
+            "aws_iam_role.api",
+            "aws_iam_role",
+            "delete",
+            sensitivity_delta=8.0,
+            wildcard_trust=True,
         )
         bullets = build_score_explanation([node], l1_count=2, l2_count=1, history_count=2)
         kinds = {b.kind for b in bullets}
@@ -1810,10 +1974,12 @@ class TestBuildScoreExplanation:
 
     def test_score_explanation_in_impact_result(self, tmp_path):
         repo = FixRepository(tmp_path)
-        plan = make_plan([
-            make_resource_change("aws_iam_role.api", "aws_iam_role", ["update"]),
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.api", "aws_iam_role", ["update"]),
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo)
         assert isinstance(result.score_explanation, list)
         assert len(result.score_explanation) > 0
@@ -1913,11 +2079,13 @@ class TestFindRelevantFixes:
     def test_error_code_match(self, tmp_path):
         """Fix with matching error code + same resource type scores 150, confidence high."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="Error: InvalidInstanceType on aws_instance",
-            resolution="Changed instance type to t3.micro",
-            tags="aws_instance",
-        ))
+        repo.save(
+            Fix(
+                issue="Error: InvalidInstanceType on aws_instance",
+                resolution="Changed instance type to t3.micro",
+                tags="aws_instance",
+            )
+        )
         node = ImpactNode("aws_instance.app", "aws_instance", "update")
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
@@ -1927,11 +2095,13 @@ class TestFindRelevantFixes:
     def test_error_code_no_resource_context(self, tmp_path):
         """Error code match WITHOUT resource type match does NOT score 150."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="Error: BucketAlreadyExists on aws_s3_bucket",
-            resolution="Changed bucket name",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="Error: BucketAlreadyExists on aws_s3_bucket",
+                resolution="Changed bucket name",
+                tags="aws_s3_bucket",
+            )
+        )
         # Changing an IAM role, not a bucket
         node = ImpactNode("aws_iam_role.app", "aws_iam_role", "update")
         result = find_relevant_fixes([node], repo)
@@ -1943,11 +2113,13 @@ class TestFindRelevantFixes:
     def test_address_match(self, tmp_path):
         """Fix mentioning exact address scores 120, confidence high."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_instance.app ran out of capacity in us-east-1",
-            resolution="Changed AZ to us-east-2",
-            tags="aws_instance",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_instance.app ran out of capacity in us-east-1",
+                resolution="Changed AZ to us-east-2",
+                tags="aws_instance",
+            )
+        )
         node = ImpactNode("aws_instance.app", "aws_instance", "update")
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
@@ -1957,11 +2129,13 @@ class TestFindRelevantFixes:
     def test_address_normalization(self, tmp_path):
         """aws_instance.app matches module.web.aws_instance.app."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_instance.app had AMI issues",
-            resolution="Updated AMI",
-            tags="aws_instance",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_instance.app had AMI issues",
+                resolution="Updated AMI",
+                tags="aws_instance",
+            )
+        )
         node = ImpactNode("module.web.aws_instance.app", "aws_instance", "update")
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
@@ -1970,17 +2144,25 @@ class TestFindRelevantFixes:
     def test_attribute_match(self, tmp_path):
         """Fix about ingress + SG ingress change scores 100, confidence medium."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="Security group ingress rules were too permissive",
-            resolution="Restricted ingress to VPC CIDR only",
-            tags="aws_security_group",
-        ))
-        node = ImpactNode("aws_security_group.web", "aws_security_group", "update",
-                        change_fingerprint={"changed_attrs": ["ingress"],
-                                          "changed_attr_count": 1,
-                                          "attr_categories": {"networking"},
-                                          "action": "update",
-                                          "sensitive_changed": False})
+        repo.save(
+            Fix(
+                issue="Security group ingress rules were too permissive",
+                resolution="Restricted ingress to VPC CIDR only",
+                tags="aws_security_group",
+            )
+        )
+        node = ImpactNode(
+            "aws_security_group.web",
+            "aws_security_group",
+            "update",
+            change_fingerprint={
+                "changed_attrs": ["ingress"],
+                "changed_attr_count": 1,
+                "attr_categories": {"networking"},
+                "action": "update",
+                "sensitive_changed": False,
+            },
+        )
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
         assert result[0]["confidence"] in ("high", "medium")
@@ -1989,17 +2171,25 @@ class TestFindRelevantFixes:
     def test_category_match(self, tmp_path):
         """Fix tagged 'networking' + networking change scores 80, confidence medium."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="VPC connectivity issue",
-            resolution="Fixed route table",
-            tags="aws_security_group,networking",
-        ))
-        node = ImpactNode("aws_security_group.web", "aws_security_group", "update",
-                        change_fingerprint={"changed_attrs": ["egress"],
-                                          "changed_attr_count": 1,
-                                          "attr_categories": {"networking"},
-                                          "action": "update",
-                                          "sensitive_changed": False})
+        repo.save(
+            Fix(
+                issue="VPC connectivity issue",
+                resolution="Fixed route table",
+                tags="aws_security_group,networking",
+            )
+        )
+        node = ImpactNode(
+            "aws_security_group.web",
+            "aws_security_group",
+            "update",
+            change_fingerprint={
+                "changed_attrs": ["egress"],
+                "changed_attr_count": 1,
+                "attr_categories": {"networking"},
+                "action": "update",
+                "sensitive_changed": False,
+            },
+        )
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
         assert result[0]["score"] >= 80
@@ -2007,11 +2197,13 @@ class TestFindRelevantFixes:
     def test_type_action_no_standalone(self, tmp_path):
         """Standalone type_action no longer surfaces (demoted to booster)."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="Failed to delete aws_s3_bucket - not empty",
-            resolution="Empty bucket first",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="Failed to delete aws_s3_bucket - not empty",
+                resolution="Empty bucket first",
+                tags="aws_s3_bucket",
+            )
+        )
         node = ImpactNode("aws_s3_bucket.data", "aws_s3_bucket", "delete")
         result = find_relevant_fixes([node], repo)
         # Standalone type_action is suppressed in attribute-first engine
@@ -2020,11 +2212,13 @@ class TestFindRelevantFixes:
     def test_type_only_tag_no_standalone(self, tmp_path):
         """Standalone tag-only match no longer surfaces (demoted to booster)."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="Some random fix",
-            resolution="Fixed it somehow",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="Some random fix",
+                resolution="Fixed it somehow",
+                tags="aws_s3_bucket",
+            )
+        )
         node = ImpactNode("aws_s3_bucket.data", "aws_s3_bucket", "create")
         result = find_relevant_fixes([node], repo)
         # Standalone type_tag is suppressed
@@ -2033,11 +2227,13 @@ class TestFindRelevantFixes:
     def test_type_only_text_no_standalone(self, tmp_path):
         """Standalone text-only match no longer surfaces (killed)."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket versioning broke after update",
-            resolution="Re-enabled versioning",
-            tags="storage",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket versioning broke after update",
+                resolution="Re-enabled versioning",
+                tags="storage",
+            )
+        )
         node = ImpactNode("aws_s3_bucket.data", "aws_s3_bucket", "create")
         result = find_relevant_fixes([node], repo)
         # type_text is fully killed
@@ -2047,11 +2243,13 @@ class TestFindRelevantFixes:
         """Recent fix gets +30 bonus (added to primary match)."""
         repo = FixRepository(tmp_path)
         # Fix with address match (primary signal) + recency
-        repo.save(Fix(
-            issue="aws_s3_bucket.data had versioning issue",
-            resolution="Fixed it",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket.data had versioning issue",
+                resolution="Fixed it",
+                tags="aws_s3_bucket",
+            )
+        )
         node = ImpactNode("aws_s3_bucket.data", "aws_s3_bucket", "create")
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
@@ -2061,17 +2259,25 @@ class TestFindRelevantFixes:
     def test_module_bonus(self, tmp_path):
         """Same module path gets +20 bonus (on top of a primary match)."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="module.networking aws_vpc.main had routing issue with route_table_id",
-            resolution="Fixed route table in module.networking",
-            tags="aws_vpc",
-        ))
-        node = ImpactNode("module.networking.aws_vpc.main", "aws_vpc", "update",
-                        change_fingerprint={"changed_attrs": ["route_table_id"],
-                                          "changed_attr_count": 1,
-                                          "attr_categories": {"networking"},
-                                          "action": "update",
-                                          "sensitive_changed": False})
+        repo.save(
+            Fix(
+                issue="module.networking aws_vpc.main had routing issue with route_table_id",
+                resolution="Fixed route table in module.networking",
+                tags="aws_vpc",
+            )
+        )
+        node = ImpactNode(
+            "module.networking.aws_vpc.main",
+            "aws_vpc",
+            "update",
+            change_fingerprint={
+                "changed_attrs": ["route_table_id"],
+                "changed_attr_count": 1,
+                "attr_categories": {"networking"},
+                "action": "update",
+                "sensitive_changed": False,
+            },
+        )
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
         # Should include module bonus
@@ -2083,11 +2289,13 @@ class TestFindRelevantFixes:
     def test_dedup_same_fix_multiple_nodes(self, tmp_path):
         """Same fix matching multiple nodes appears once with both resources."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="S3 bucket ACL error with aws_s3_bucket.a and aws_s3_bucket.b",
-            resolution="Set to private",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="S3 bucket ACL error with aws_s3_bucket.a and aws_s3_bucket.b",
+                resolution="Set to private",
+                tags="aws_s3_bucket",
+            )
+        )
         nodes = [
             ImpactNode("aws_s3_bucket.a", "aws_s3_bucket", "create"),
             ImpactNode("aws_s3_bucket.b", "aws_s3_bucket", "create"),
@@ -2101,15 +2309,14 @@ class TestFindRelevantFixes:
         """Respects max_total cap."""
         repo = FixRepository(tmp_path)
         for i in range(5):
-            repo.save(Fix(
-                issue=f"aws_s3_bucket.data_{i} had error UniqueCode{i}",
-                resolution=f"Fix {i}",
-                tags="aws_s3_bucket",
-            ))
-        nodes = [
-            ImpactNode(f"aws_s3_bucket.data_{i}", "aws_s3_bucket", "create")
-            for i in range(5)
-        ]
+            repo.save(
+                Fix(
+                    issue=f"aws_s3_bucket.data_{i} had error UniqueCode{i}",
+                    resolution=f"Fix {i}",
+                    tags="aws_s3_bucket",
+                )
+            )
+        nodes = [ImpactNode(f"aws_s3_bucket.data_{i}", "aws_s3_bucket", "create") for i in range(5)]
         result = find_relevant_fixes(nodes, repo, max_total=2)
         assert len(result) <= 2
 
@@ -2117,11 +2324,13 @@ class TestFindRelevantFixes:
         """Verify high/medium/low confidence thresholds."""
         repo = FixRepository(tmp_path)
         # High: address match (120+)
-        repo.save(Fix(
-            issue="aws_instance.app capacity issue",
-            resolution="Changed AZ",
-            tags="aws_instance",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_instance.app capacity issue",
+                resolution="Changed AZ",
+                tags="aws_instance",
+            )
+        )
         node = ImpactNode("aws_instance.app", "aws_instance", "update")
         result = find_relevant_fixes([node], repo)
         assert result[0]["confidence"] == "high"
@@ -2129,11 +2338,13 @@ class TestFindRelevantFixes:
     def test_match_reason_structure(self, tmp_path):
         """match_reason is a structured dict with signal/detail/resource_type/confidence/supporting_signals."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_s3_bucket.data had ACL error",
-            resolution="Set to private",
-            tags="aws_s3_bucket",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_s3_bucket.data had ACL error",
+                resolution="Set to private",
+                tags="aws_s3_bucket",
+            )
+        )
         node = ImpactNode("aws_s3_bucket.data", "aws_s3_bucket", "create")
         result = find_relevant_fixes([node], repo)
         mr = result[0]["match_reason"]
@@ -2147,17 +2358,25 @@ class TestFindRelevantFixes:
     def test_supporting_signals(self, tmp_path):
         """Fix matching error code + attribute + recency has supporting signals."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="Error: InvalidInstanceType on aws_instance - instance_type t3.xlarge not available",
-            resolution="Changed instance_type to t3.large in us-east-1",
-            tags="aws_instance",
-        ))
-        node = ImpactNode("aws_instance.app", "aws_instance", "update",
-                        change_fingerprint={"changed_attrs": ["instance_type"],
-                                          "changed_attr_count": 1,
-                                          "attr_categories": {"sizing"},
-                                          "action": "update",
-                                          "sensitive_changed": False})
+        repo.save(
+            Fix(
+                issue="Error: InvalidInstanceType on aws_instance - instance_type t3.xlarge not available",
+                resolution="Changed instance_type to t3.large in us-east-1",
+                tags="aws_instance",
+            )
+        )
+        node = ImpactNode(
+            "aws_instance.app",
+            "aws_instance",
+            "update",
+            change_fingerprint={
+                "changed_attrs": ["instance_type"],
+                "changed_attr_count": 1,
+                "attr_categories": {"sizing"},
+                "action": "update",
+                "sensitive_changed": False,
+            },
+        )
         result = find_relevant_fixes([node], repo)
         assert len(result) >= 1
         mr = result[0]["match_reason"]
@@ -2170,15 +2389,19 @@ class TestFindRelevantFixes:
         """High confidence qualifies for history; low never qualifies."""
         repo = FixRepository(tmp_path)
         # High confidence fix (address match)
-        repo.save(Fix(
-            issue="aws_iam_role.app permissions broke lambda",
-            resolution="Recreated role with correct policy, check IAM thoroughly",
-            tags="aws_iam_role,iam",
-        ))
+        repo.save(
+            Fix(
+                issue="aws_iam_role.app permissions broke lambda",
+                resolution="Recreated role with correct policy, check IAM thoroughly",
+                tags="aws_iam_role,iam",
+            )
+        )
         node = ImpactNode("aws_iam_role.app", "aws_iam_role", "update")
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["update"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["update"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo)
         # Should have qualifying history matches
         assert len(result.history_matches) >= 1
@@ -2200,12 +2423,18 @@ class TestGenerateContextualChecks:
 
     def test_attr_checks_generated(self):
         """Attribute-specific checks generated for changed attrs."""
-        node = ImpactNode("aws_security_group.web", "aws_security_group", "update",
-                        change_fingerprint={"changed_attrs": ["ingress"],
-                                          "changed_attr_count": 1,
-                                          "attr_categories": {"networking"},
-                                          "action": "update",
-                                          "sensitive_changed": False})
+        node = ImpactNode(
+            "aws_security_group.web",
+            "aws_security_group",
+            "update",
+            change_fingerprint={
+                "changed_attrs": ["ingress"],
+                "changed_attr_count": 1,
+                "attr_categories": {"networking"},
+                "action": "update",
+                "sensitive_changed": False,
+            },
+        )
         checks = generate_contextual_checks([node], [])
         attr_checks = [c for c in checks if c["source"] == "attribute"]
         assert len(attr_checks) >= 1
@@ -2248,8 +2477,11 @@ class TestGenerateContextualChecks:
         """At most 2 history-derived checks."""
         node = ImpactNode("aws_instance.app", "aws_instance", "update")
         fixes = [
-            {"confidence": "high", "resolution": f"Resolution number {i} is long enough to be meaningful",
-             "matched_resources": [{"address": "aws_instance.app", "action": "update"}]}
+            {
+                "confidence": "high",
+                "resolution": f"Resolution number {i} is long enough to be meaningful",
+                "matched_resources": [{"address": "aws_instance.app", "action": "update"}],
+            }
             for i in range(5)
         ]
         checks = generate_contextual_checks([node], fixes)
@@ -2258,13 +2490,20 @@ class TestGenerateContextualChecks:
 
     def test_category_fallback(self):
         """Category fallback when no attr-specific checks."""
-        node = ImpactNode("aws_iam_role.app", "aws_iam_role", "delete",
-                        category="iam", is_control_point=True,
-                        change_fingerprint={"changed_attrs": ["tags"],
-                                          "changed_attr_count": 1,
-                                          "attr_categories": {"metadata"},
-                                          "action": "delete",
-                                          "sensitive_changed": False})
+        node = ImpactNode(
+            "aws_iam_role.app",
+            "aws_iam_role",
+            "delete",
+            category="iam",
+            is_control_point=True,
+            change_fingerprint={
+                "changed_attrs": ["tags"],
+                "changed_attr_count": 1,
+                "attr_categories": {"metadata"},
+                "action": "delete",
+                "sensitive_changed": False,
+            },
+        )
         checks = generate_contextual_checks([node], [])
         cat_checks = [c for c in checks if c["source"] == "category"]
         assert len(cat_checks) >= 1
@@ -2279,18 +2518,30 @@ class TestGenerateContextualChecks:
     def test_dedup_checks(self):
         """No duplicate check texts."""
         nodes = [
-            ImpactNode("aws_security_group.a", "aws_security_group", "update",
-                     change_fingerprint={"changed_attrs": ["ingress"],
-                                       "changed_attr_count": 1,
-                                       "attr_categories": {"networking"},
-                                       "action": "update",
-                                       "sensitive_changed": False}),
-            ImpactNode("aws_security_group.b", "aws_security_group", "update",
-                     change_fingerprint={"changed_attrs": ["ingress"],
-                                       "changed_attr_count": 1,
-                                       "attr_categories": {"networking"},
-                                       "action": "update",
-                                       "sensitive_changed": False}),
+            ImpactNode(
+                "aws_security_group.a",
+                "aws_security_group",
+                "update",
+                change_fingerprint={
+                    "changed_attrs": ["ingress"],
+                    "changed_attr_count": 1,
+                    "attr_categories": {"networking"},
+                    "action": "update",
+                    "sensitive_changed": False,
+                },
+            ),
+            ImpactNode(
+                "aws_security_group.b",
+                "aws_security_group",
+                "update",
+                change_fingerprint={
+                    "changed_attrs": ["ingress"],
+                    "changed_attr_count": 1,
+                    "attr_categories": {"networking"},
+                    "action": "update",
+                    "sensitive_changed": False,
+                },
+            ),
         ]
         checks = generate_contextual_checks(nodes, [])
         texts = [c["check"] for c in checks]
@@ -2308,14 +2559,18 @@ class TestBackwardCompat:
     def test_resource_warnings_returns_data(self, tmp_path):
         """resource_warnings field returns relevant_fixes data."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="S3 bucket issue",
-            resolution="Fixed it",
-            tags="aws_s3_bucket",
-        ))
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+        repo.save(
+            Fix(
+                issue="S3 bucket issue",
+                resolution="Fixed it",
+                tags="aws_s3_bucket",
+            )
+        )
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo)
         # resource_warnings should be populated from relevant_fixes
         assert result.resource_warnings == result.relevant_fixes
@@ -2323,23 +2578,29 @@ class TestBackwardCompat:
     def test_history_matches_returns_top_3(self, tmp_path):
         """history_matches returns qualifying matches capped at 3."""
         repo = FixRepository(tmp_path)
-        repo.save(Fix(
-            issue="aws_iam_role.app broke lambda functions",
-            resolution="Recreated role with matching policy",
-            tags="aws_iam_role,iam",
-        ))
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        repo.save(
+            Fix(
+                issue="aws_iam_role.app broke lambda functions",
+                resolution="Recreated role with matching policy",
+                tags="aws_iam_role,iam",
+            )
+        )
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo)
         assert len(result.history_matches) <= 3
 
     def test_checks_populated(self, tmp_path):
         """Legacy checks field is populated from contextual_checks."""
         repo = FixRepository(tmp_path)
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         result = analyze_change_impact(plan, repo)
         assert len(result.checks) > 0
         assert all(isinstance(c, str) for c in result.checks)
@@ -2347,9 +2608,12 @@ class TestBackwardCompat:
     def test_json_output_has_all_keys(self, tmp_path):
         """JSON output includes both new and legacy keys."""
         from fixdoc.commands.analyze import _format_json
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
-        ])
+
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["delete"]),
+            ]
+        )
         repo = FixRepository(tmp_path)
         result = analyze_change_impact(plan, repo)
         data = json.loads(_format_json(result))
@@ -2372,12 +2636,14 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_header(self):
         from fixdoc.commands.analyze import _format_markdown
+
         result = _make_result_with_warnings([])
         output = _format_markdown(result)
         assert "## Terraform Risk Analysis" in output
 
     def test_markdown_score_and_severity(self):
         from fixdoc.commands.analyze import _format_markdown
+
         result = _make_result_with_warnings([])
         result.score = 67.0
         result.severity = "high"
@@ -2388,6 +2654,7 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_summary_table(self):
         from fixdoc.commands.analyze import _format_markdown
+
         result = _make_result_with_warnings([])
         result.plan_summary = {
             "total_changes": 5,
@@ -2407,6 +2674,7 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_score_explanation_top_3(self):
         from fixdoc.commands.analyze import _format_markdown
+
         result = _make_result_with_warnings([])
         result.score_explanation = [
             {"label": "A", "delta": 10, "kind": "action"},
@@ -2428,6 +2696,7 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_contextual_checks_top_3(self):
         from fixdoc.commands.analyze import _format_markdown
+
         result = _make_result_with_warnings([])
         result.contextual_checks = [
             {"check": "Check A", "source": "attr", "resource": ""},
@@ -2446,19 +2715,26 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_relevant_fixes_narrative(self):
         from fixdoc.commands.analyze import _format_markdown
-        warnings = [{
-            "short_id": "3a8f12c4",
-            "issue": "IAM role missing lambda:InvokeFunction",
-            "resolution": "Added permission",
-            "tags": "aws_iam_role",
-            "created_at": "2024-01-15",
-            "match_reason": {"signal": "error_code", "detail": "InvalidPermission",
-                           "resource_type": "aws_iam_role", "confidence": "high",
-                           "supporting_signals": []},
-            "confidence": "high",
-            "score": 150,
-            "matched_resources": [{"address": "aws_iam_role.app", "action": "update"}],
-        }]
+
+        warnings = [
+            {
+                "short_id": "3a8f12c4",
+                "issue": "IAM role missing lambda:InvokeFunction",
+                "resolution": "Added permission",
+                "tags": "aws_iam_role",
+                "created_at": "2024-01-15",
+                "match_reason": {
+                    "signal": "error_code",
+                    "detail": "InvalidPermission",
+                    "resource_type": "aws_iam_role",
+                    "confidence": "high",
+                    "supporting_signals": [],
+                },
+                "confidence": "high",
+                "score": 150,
+                "matched_resources": [{"address": "aws_iam_role.app", "action": "update"}],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         result.relevant_fixes = warnings
         output = _format_markdown(result)
@@ -2469,19 +2745,22 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_relevant_fixes_top_3(self):
         from fixdoc.commands.analyze import _format_markdown
+
         fixes = []
         for i in range(5):
-            fixes.append({
-                "short_id": f"fix{i:05d}0",
-                "issue": f"Issue number {i}",
-                "resolution": f"Resolution {i}",
-                "tags": "aws_s3_bucket",
-                "created_at": "2024-01-15",
-                "match_reason": "tag_match",
-                "confidence": "low",
-                "score": 40,
-                "matched_resources": [],
-            })
+            fixes.append(
+                {
+                    "short_id": f"fix{i:05d}0",
+                    "issue": f"Issue number {i}",
+                    "resolution": f"Resolution {i}",
+                    "tags": "aws_s3_bucket",
+                    "created_at": "2024-01-15",
+                    "match_reason": "tag_match",
+                    "confidence": "low",
+                    "score": 40,
+                    "matched_resources": [],
+                }
+            )
         result = _make_result_with_warnings(fixes)
         result.relevant_fixes = fixes
         output = _format_markdown(result)
@@ -2493,6 +2772,7 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_empty_sections_omitted(self):
         from fixdoc.commands.analyze import _format_markdown
+
         result = _make_result_with_warnings([])
         result.relevant_fixes = []
         result.contextual_checks = []
@@ -2505,6 +2785,7 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_severity_emojis(self):
         from fixdoc.commands.analyze import _format_markdown
+
         for sev, emoji in [
             ("critical", ":red_circle:"),
             ("high", ":warning:"),
@@ -2518,17 +2799,20 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_no_ansi(self):
         from fixdoc.commands.analyze import _format_markdown
-        warnings = [{
-            "short_id": "abcdef12",
-            "issue": "Test issue",
-            "resolution": "Test resolution",
-            "tags": "aws_s3_bucket",
-            "created_at": "2024-01-15",
-            "match_reason": "tag_match",
-            "confidence": "low",
-            "score": 40,
-            "matched_resources": [],
-        }]
+
+        warnings = [
+            {
+                "short_id": "abcdef12",
+                "issue": "Test issue",
+                "resolution": "Test resolution",
+                "tags": "aws_s3_bucket",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "confidence": "low",
+                "score": 40,
+                "matched_resources": [],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         result.relevant_fixes = warnings
         result.score_explanation = [{"label": "Test", "delta": 10, "kind": "action"}]
@@ -2539,11 +2823,13 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_cli_flag(self, tmp_path):
         """--format markdown produces markdown output via CLI."""
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         plan_path = tmp_path / "plan.json"
-        plan = make_plan([
-            make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_s3_bucket.data", "aws_s3_bucket", ["create"]),
+            ]
+        )
         plan_path.write_text(json.dumps(plan))
 
         with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None):
@@ -2558,18 +2844,21 @@ class TestAnalyzeFormatMarkdown:
 
     def test_markdown_truncates_long_text(self):
         from fixdoc.commands.analyze import _format_markdown
+
         long_issue = "A" * 120
-        warnings = [{
-            "short_id": "trunc001",
-            "issue": long_issue,
-            "resolution": "Fixed",
-            "tags": "",
-            "created_at": "2024-01-15",
-            "match_reason": "tag_match",
-            "confidence": "low",
-            "score": 40,
-            "matched_resources": [],
-        }]
+        warnings = [
+            {
+                "short_id": "trunc001",
+                "issue": long_issue,
+                "resolution": "Fixed",
+                "tags": "",
+                "created_at": "2024-01-15",
+                "match_reason": "tag_match",
+                "confidence": "low",
+                "score": 40,
+                "matched_resources": [],
+            }
+        ]
         result = _make_result_with_warnings(warnings)
         result.relevant_fixes = warnings
         output = _format_markdown(result)
@@ -2627,12 +2916,14 @@ class TestAINarrative:
         mock_client.messages.create.return_value = mock_message
 
         import sys
+
         mock_anthropic = MagicMock()
         mock_anthropic.Anthropic.return_value = mock_client
 
         with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
             # Reload to pick up mock
             import importlib
+
             mod = importlib.import_module("fixdoc.commands.analyze")
             narrative = mod.generate_ai_narrative(result, changed, "test-key")
 
@@ -2650,8 +2941,10 @@ class TestAINarrative:
         from fixdoc.commands.analyze import generate_ai_narrative
 
         import sys
+
         with patch.dict(sys.modules, {"anthropic": None}):
             import importlib
+
             mod = importlib.import_module("fixdoc.commands.analyze")
             result = _make_result_with_warnings([])
             narrative = mod.generate_ai_narrative(result, _make_changed(), "test-key")
@@ -2661,6 +2954,7 @@ class TestAINarrative:
     def test_generate_ai_narrative_returns_none_on_api_error(self):
         """Returns None when API call raises an exception."""
         import sys
+
         mock_anthropic = MagicMock()
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = Exception("API error")
@@ -2668,6 +2962,7 @@ class TestAINarrative:
 
         with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
             import importlib
+
             mod = importlib.import_module("fixdoc.commands.analyze")
             result = _make_result_with_warnings([])
             narrative = mod.generate_ai_narrative(result, _make_changed(), "test-key")
@@ -2703,16 +2998,24 @@ class TestAINarrative:
         from click.testing import CliRunner
         from fixdoc.fix import create_cli
 
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         plan_path = tmp_path / "plan.json"
-        plan = make_plan([
-            make_resource_change("aws_iam_role.app", "aws_iam_role", ["update"]),
-        ])
+        plan = make_plan(
+            [
+                make_resource_change("aws_iam_role.app", "aws_iam_role", ["update"]),
+            ]
+        )
         plan_path.write_text(json.dumps(plan))
 
-        with patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None), \
-             patch.object(_analyze_cmd_mod, "generate_ai_explanation", return_value="• AI bullet") as mock_explain, \
-             patch.object(_analyze_cmd_mod, "generate_ai_narrative", return_value="AI narrative text.") as mock_narrative:
+        with (
+            patch.object(_analyze_cmd_mod, "_auto_run_terraform_graph", return_value=None),
+            patch.object(
+                _analyze_cmd_mod, "generate_ai_explanation", return_value="• AI bullet"
+            ) as mock_explain,
+            patch.object(
+                _analyze_cmd_mod, "generate_ai_narrative", return_value="AI narrative text."
+            ) as mock_narrative,
+        ):
 
             result = runner.invoke(
                 create_cli(),
@@ -2778,9 +3081,12 @@ class TestOutcomeScoring:
 
     def test_greenfield_cap_applies_after_outcome(self):
         """Greenfield ceiling (45) still applies even with outcome failures."""
-        nodes = [ImpactNode(
-            address=f"aws_s3_bucket.b{i}", resource_type="aws_s3_bucket", action="create"
-        ) for i in range(20)]
+        nodes = [
+            ImpactNode(
+                address=f"aws_s3_bucket.b{i}", resource_type="aws_s3_bucket", action="create"
+            )
+            for i in range(20)
+        ]
         score = compute_impact_score(nodes, 0, 0, 0, outcome_failure_count=3)
         assert score <= 45.0
 

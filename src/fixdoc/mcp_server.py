@@ -7,8 +7,8 @@ Iterate on those strings the way you'd iterate on a landing page.
 
 Transport is hand-rolled newline-delimited JSON-RPC 2.0, the MCP stdio
 framing, on stdlib only.
-# ponytail: stdio-only, no SDK — adopt the official mcp package (needs
-# Python 3.10+) when Streamable HTTP / hosted mode lands.
+# ponytail: stdio-only, no SDK — zero deps and ~80 lines cover the tools-only
+# surface; adopt the official mcp package when Streamable HTTP / hosted lands.
 
 The server holds no state of its own: everything lives in the store and the
 index, so several instances can share one repo, and killing the process

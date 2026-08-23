@@ -7,7 +7,7 @@ name = "fixdoc"
 version = "0.0.4"
 description = "Capture and search infrastructure fixes for cloud/SRE engineers"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     { name="Fiyi", email="fiyignk@gmail.com" }
@@ -21,7 +21,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -29,7 +28,7 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-    "click>=8.0.0",
+    "click>=8.2.0",
     "pyyaml>=6.0.0",
 ]
 
@@ -53,7 +52,7 @@ where = ["src"]
 
 [tool.black]
 line-length = 100
-target-version = ["py39"]
+target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100

@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := help
 VENV := .venv
+# Prefer the newest interpreter for bootstrapping the venv (floor: 3.10)
+PY_BOOT := $(shell command -v python3.13 || command -v python3.12 || command -v python3.11 || command -v python3.10 || command -v python3)
 PYTHON := $(VENV)/bin/python3
 PIP := $(VENV)/bin/pip
 
@@ -11,12 +13,12 @@ help: ## List all targets with descriptions
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' \
 		| sort
 
-check-deps: ## Verify Python 3.9+, Docker, Docker Compose, and Terraform 1.5+ are present
+check-deps: ## Verify Python 3.10+, Docker, Docker Compose, and Terraform 1.5+ are present
 	@bash scripts/setup-dev.sh --check-only
 
 setup: ## Create .venv and install package in development mode
 	@if [ ! -d "$(VENV)" ]; then \
-		python3 -m venv $(VENV); \
+		$(PY_BOOT) -m venv $(VENV); \
 	fi
 	@$(PIP) install --quiet -e ".[dev]"
 	@echo "Setup complete. Activate with: source $(VENV)/bin/activate"
