@@ -1,4 +1,0 @@
-ec2:RunInstances → UnauthorizedOperation
-iam:CreateRole → AccessDenied
-s3:CreateBucket → AccessDenied
-ec2:CreateSubnet → UnauthorizedOperation
