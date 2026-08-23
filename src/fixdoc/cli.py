@@ -1,59 +1,22 @@
-"""CLI assembly for fixdoc."""
+"""CLI assembly for fixdoc.
+
+Two commands, on purpose: init makes a repo agent-ready, serve runs the MCP
+server. Agents do the day-to-day work through the four MCP tools; humans
+review knowledge in git. Ops commands (status, promote, doctor) join here
+as they earn their place.
+"""
 
 import click
 
-from .commands import (
-    analyze,
-    capture,
-    delete,
-    demo,
-    edit,
-    import_group,
-    list_fixes,
-    outcome,
-    pending,
-    resolve,
-    search,
-    show,
-    stats,
-    sync,
-    watch,
-)
-from .commands.init_cmd import init_command
-from .commands.serve import serve
-from .config import ConfigManager, resolve_base_path
+from .commands import init_command, serve
 
 
 def create_cli() -> click.Group:
-
     @click.group()
     @click.version_option(version="0.1.0", prog_name="fixdoc")
-    @click.pass_context
-    def cli(ctx):
-        ctx.ensure_object(dict)
-        base_path = resolve_base_path()
-        config_manager = ConfigManager(base_path)
-        ctx.obj["base_path"] = base_path
-        ctx.obj["config_manager"] = config_manager
-        ctx.obj["config"] = config_manager.load()
+    def cli():
+        """FixDoc — the incident knowledge store your AI agents query over MCP."""
 
-    # group commands
-    cli.add_command(capture)
-    cli.add_command(search)
-    cli.add_command(show)
-    cli.add_command(analyze)
-    cli.add_command(list_fixes)
-    cli.add_command(stats)
-    cli.add_command(delete)
-    cli.add_command(edit)
-    cli.add_command(sync)
-    cli.add_command(demo)
-    cli.add_command(watch)
-    cli.add_command(pending)
-    cli.add_command(import_group)
-    cli.add_command(resolve)
-    cli.add_command(outcome)
-    cli.add_command(serve)
     cli.add_command(init_command)
-
+    cli.add_command(serve)
     return cli
