@@ -39,3 +39,12 @@ class TestServeCommand:
         result = runner.invoke(create_cli(), ["serve", "--store", str(tmp_path)])
         assert result.exit_code != 0
         assert "fixdoc[embed]" in result.output
+
+
+class TestEmbedderOutput:
+    def test_real_embedder_returns_plain_floats(self):
+        pytest.importorskip("fastembed")
+        embed = get_embedder()
+        vector = embed("pods stuck pending")
+        assert len(vector) == 384
+        assert all(type(x) is float for x in vector)  # numpy float32 breaks the events log
