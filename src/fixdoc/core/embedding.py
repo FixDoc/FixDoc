@@ -21,6 +21,8 @@ def get_embedder(model_name=DEFAULT_MODEL):
     model = TextEmbedding(model_name)
 
     def embed(text):
-        return list(next(iter(model.embed([text]))))
+        # Plain Python floats at the boundary: fastembed yields numpy float32,
+        # which json.dumps (events log) refuses downstream.
+        return [float(x) for x in next(iter(model.embed([text])))]
 
     return embed
