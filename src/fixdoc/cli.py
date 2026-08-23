@@ -19,6 +19,7 @@ from .commands import (
     sync,
     watch,
 )
+from .commands.init_cmd import init_command
 from .commands.serve import serve
 from .config import ConfigManager, resolve_base_path
 
@@ -53,5 +54,6 @@ def create_cli() -> click.Group:
     cli.add_command(resolve)
     cli.add_command(outcome)
     cli.add_command(serve)
+    cli.add_command(init_command)
 
     return cli

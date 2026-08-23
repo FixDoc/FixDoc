@@ -11,3 +11,4 @@ CLAUDE.md
 !docs/**/*.md
 .fixdoc-pending
 .fixdoc-test/
+build/
