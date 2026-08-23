@@ -77,13 +77,39 @@ DELETE_CHECKS = ["Confirm resource is not referenced by other stacks"]
 # Category tags that indicate a fix is relevant to a specific concern domain.
 # Resource-type-only tags (e.g. "aws_instance") are NOT sufficient — a fix must
 # have at least one of these to surface in Phase 2 history matching.
-_HISTORY_CATEGORY_TAGS: frozenset = frozenset({
-    "networking", "network", "rbac", "iam", "dns", "quota", "state",
-    "state-lock", "auth", "authentication", "authorization", "acl",
-    "route", "routing", "connectivity", "ingress", "egress", "security",
-    "firewall", "k8s", "kubernetes", "key_vault", "vault", "certificate",
-    "cert", "database", "db", "storage", "permissions",
-})
+_HISTORY_CATEGORY_TAGS: frozenset = frozenset(
+    {
+        "networking",
+        "network",
+        "rbac",
+        "iam",
+        "dns",
+        "quota",
+        "state",
+        "state-lock",
+        "auth",
+        "authentication",
+        "authorization",
+        "acl",
+        "route",
+        "routing",
+        "connectivity",
+        "ingress",
+        "egress",
+        "security",
+        "firewall",
+        "k8s",
+        "kubernetes",
+        "key_vault",
+        "vault",
+        "certificate",
+        "cert",
+        "database",
+        "db",
+        "storage",
+        "permissions",
+    }
+)
 
 # Action points for the linear scoring formula
 ACTION_POINTS = {
@@ -97,16 +123,23 @@ _ACTIONABLE_ACTIONS = frozenset({"create", "update", "delete", "replace"})
 
 # Discount multipliers for all-create (greenfield) plans.
 # Creating new resources poses lower risk than modifying existing ones.
-GREENFIELD_MULTIPLIER = 0.3           # non-boundary creates
-GREENFIELD_BOUNDARY_MULTIPLIER = 0.5  # boundary creates (smaller discount — still risky if misconfigured)
-GREENFIELD_IMPACT_MULTIPLIER = 0.25   # fraction of normal L1/L2 weight for cross-boundary edges
+GREENFIELD_MULTIPLIER = 0.3  # non-boundary creates
+GREENFIELD_BOUNDARY_MULTIPLIER = (
+    0.5  # boundary creates (smaller discount — still risky if misconfigured)
+)
+GREENFIELD_IMPACT_MULTIPLIER = 0.25  # fraction of normal L1/L2 weight for cross-boundary edges
 
 
 # Sensitive IAM policy fields — a change to any of these triggers Layer 1 scoring.
-_SENSITIVE_IAM_FIELDS: frozenset = frozenset({
-    "assume_role_policy", "policy", "inline_policy",
-    "managed_policy_arns", "policy_arn",
-})
+_SENSITIVE_IAM_FIELDS: frozenset = frozenset(
+    {
+        "assume_role_policy",
+        "policy",
+        "inline_policy",
+        "managed_policy_arns",
+        "policy_arn",
+    }
+)
 
 # Matches cross-account ARNs like arn:aws:iam::123456789012:root
 _CROSS_ACCOUNT_RE = re.compile(r"^arn:aws:iam::\d+:root$")
@@ -117,33 +150,65 @@ _CROSS_ACCOUNT_RE = re.compile(r"^arn:aws:iam::\d+:root$")
 # ---------------------------------------------------------------------------
 
 ATTR_CATEGORIES = {
-    "ingress": "networking", "egress": "networking", "cidr_blocks": "networking",
-    "security_groups": "networking", "from_port": "networking", "to_port": "networking",
-    "subnet_id": "networking", "vpc_id": "networking", "route_table_id": "networking",
-    "instance_type": "sizing", "instance_class": "sizing", "node_type": "sizing",
-    "policy": "iam", "assume_role_policy": "iam", "role": "iam", "policy_arn": "iam",
-    "managed_policy_arns": "iam", "inline_policy": "iam",
-    "tags": "metadata", "name": "naming", "description": "metadata",
-    "ami": "image", "image_id": "image",
-    "engine_version": "versioning", "runtime": "versioning",
-    "cidr_block": "networking", "availability_zone": "placement",
-    "kms_key_id": "encryption", "encrypted": "encryption",
-    "acl": "access", "versioning": "storage", "bucket": "naming",
+    "ingress": "networking",
+    "egress": "networking",
+    "cidr_blocks": "networking",
+    "security_groups": "networking",
+    "from_port": "networking",
+    "to_port": "networking",
+    "subnet_id": "networking",
+    "vpc_id": "networking",
+    "route_table_id": "networking",
+    "instance_type": "sizing",
+    "instance_class": "sizing",
+    "node_type": "sizing",
+    "policy": "iam",
+    "assume_role_policy": "iam",
+    "role": "iam",
+    "policy_arn": "iam",
+    "managed_policy_arns": "iam",
+    "inline_policy": "iam",
+    "tags": "metadata",
+    "name": "naming",
+    "description": "metadata",
+    "ami": "image",
+    "image_id": "image",
+    "engine_version": "versioning",
+    "runtime": "versioning",
+    "cidr_block": "networking",
+    "availability_zone": "placement",
+    "kms_key_id": "encryption",
+    "encrypted": "encryption",
+    "acl": "access",
+    "versioning": "storage",
+    "bucket": "naming",
 }
 
 # Attribute-aware recommended checks
 ATTR_CHECKS = {
-    ("aws_security_group", "ingress"): "Review new ingress rules for overly permissive CIDRs (0.0.0.0/0)",
+    (
+        "aws_security_group",
+        "ingress",
+    ): "Review new ingress rules for overly permissive CIDRs (0.0.0.0/0)",
     ("aws_security_group", "egress"): "Review egress rules for least-privilege outbound access",
-    ("aws_iam_role", "assume_role_policy"): "Audit trust policy principals for wildcard or cross-account access",
+    (
+        "aws_iam_role",
+        "assume_role_policy",
+    ): "Audit trust policy principals for wildcard or cross-account access",
     ("aws_iam_role_policy", "policy"): "Review inline policy for least-privilege",
     ("aws_iam_policy", "policy"): "Review managed policy document for overly broad permissions",
     ("aws_instance", "instance_type"): "Verify instance type availability in target AZ and region",
     ("aws_instance", "ami"): "Confirm AMI exists and is shared to this account",
-    ("aws_db_instance", "engine_version"): "Check RDS engine version compatibility and upgrade path",
+    (
+        "aws_db_instance",
+        "engine_version",
+    ): "Check RDS engine version compatibility and upgrade path",
     ("aws_s3_bucket", "acl"): "Review bucket ACL — prefer bucket policies over ACLs",
     ("aws_lambda_function", "runtime"): "Verify runtime is not deprecated",
-    ("aws_vpc", "cidr_block"): "CIDR change forces replacement — verify peering/route table dependencies",
+    (
+        "aws_vpc",
+        "cidr_block",
+    ): "CIDR change forces replacement — verify peering/route table dependencies",
     ("aws_subnet", "cidr_block"): "Subnet CIDR change forces replacement — check ENI dependencies",
 }
 
@@ -185,9 +250,7 @@ class ImpactResult:
     """Complete result of a change impact analysis."""
 
     analysis_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     score: float = 0.0
     severity: str = "low"
     changes: list[dict] = field(default_factory=list)
@@ -208,9 +271,9 @@ class ImpactResult:
 class ScoreExplanation:
     """A single bullet-point explanation of an impact score contribution."""
 
-    label: str    # Human-readable description
+    label: str  # Human-readable description
     delta: float  # Score contribution (positive = adds to score)
-    kind: str     # "action", "iam", "impact", "history", "modifier"
+    kind: str  # "action", "iam", "impact", "history", "modifier"
 
 
 def is_actionable_change(node: ImpactNode) -> bool:
@@ -252,11 +315,7 @@ def is_boundary_resource(resource_type: str) -> bool:
 # ---------------------------------------------------------------------------
 
 # Matches edges: "node_a" -> "node_b" or unquoted node_a -> node_b
-_EDGE_RE = re.compile(
-    r'"([^"]+)"\s*->\s*"([^"]+)"'
-    r"|"
-    r"(\S+)\s*->\s*(\S+)"
-)
+_EDGE_RE = re.compile(r'"([^"]+)"\s*->\s*"([^"]+)"' r"|" r"(\S+)\s*->\s*(\S+)")
 
 
 def _normalize_tf_node(name: str) -> str:
@@ -342,9 +401,7 @@ def compute_affected_set(
 
     for node in start_nodes:
         queue.append((node, 0, [node]))
-        visited[node] = AffectedResource(
-            address=node, resource_type="", depth=0, path=[node]
-        )
+        visited[node] = AffectedResource(address=node, resource_type="", depth=0, path=[node])
 
     while queue:
         current, depth, path = queue.popleft()
@@ -482,8 +539,10 @@ def _compute_iam_sensitivity(change_block: dict) -> tuple:
         principal_delta = min(principal_delta, 25.0)
 
     delta = layer1_delta + principal_delta
-    reason = ", ".join(reason_parts) if reason_parts else (
-        "policy field changed" if layer1_delta > 0 else ""
+    reason = (
+        ", ".join(reason_parts)
+        if reason_parts
+        else ("policy field changed" if layer1_delta > 0 else "")
     )
     return delta, reason, wildcard_trust
 
@@ -534,9 +593,7 @@ def compute_impact_score(
 
     # No-ops/reads are already excluded by analyze_change_impact() before this call.
     # Greenfield: all active changes are creates.
-    is_greenfield = bool(changed_nodes) and all(
-        node.action == "create" for node in changed_nodes
-    )
+    is_greenfield = bool(changed_nodes) and all(node.action == "create" for node in changed_nodes)
 
     # 1. Action points for each L0 resource
     all_updates_no_boundary = True
@@ -620,8 +677,7 @@ def build_score_explanation(
 
     is_greenfield = all(node.action == "create" for node in nodes)
     all_updates_no_boundary = all(
-        node.action == "update" and not is_boundary_resource(node.resource_type)
-        for node in nodes
+        node.action == "update" and not is_boundary_resource(node.resource_type) for node in nodes
     )
 
     # Action bullets — one per changed node
@@ -662,9 +718,7 @@ def build_score_explanation(
         # Wildcard trust modifier
         if node.wildcard_trust:
             label = "Wildcard principal (*) in IAM trust policy — forces minimum HIGH score"
-            explanations.append(
-                ScoreExplanation(label=label, delta=0.0, kind="modifier")
-            )
+            explanations.append(ScoreExplanation(label=label, delta=0.0, kind="modifier"))
 
     # Impact bullet
     impacted = min(l1_count + l2_count, 25)
@@ -677,9 +731,7 @@ def build_score_explanation(
             impact_multiplier = 1.5
         delta = round(impacted * impact_multiplier, 1)
         label = f"{impacted} downstream resource(s) affected via dependency graph"
-        explanations.append(
-            ScoreExplanation(label=label, delta=delta, kind="impact")
-        )
+        explanations.append(ScoreExplanation(label=label, delta=delta, kind="impact"))
 
     # History bullet
     if history_count > 0:
@@ -690,25 +742,19 @@ def build_score_explanation(
             f"Prior similar incident{plural} detected in fix history "
             f"({history_count} match{match_plural})"
         )
-        explanations.append(
-            ScoreExplanation(label=label, delta=delta, kind="history")
-        )
+        explanations.append(ScoreExplanation(label=label, delta=delta, kind="history"))
 
     # Outcome bullet
     if outcome_failure_count > 0:
         delta = float(min(outcome_failure_count * 10, 25))
         plural = "s" if outcome_failure_count > 1 else ""
         label = f"Prior apply failure{plural} with this change pattern ({outcome_failure_count})"
-        explanations.append(
-            ScoreExplanation(label=label, delta=delta, kind="outcome")
-        )
+        explanations.append(ScoreExplanation(label=label, delta=delta, kind="outcome"))
 
     # Greenfield cap modifier
     if is_greenfield and l1_count == 0 and l2_count == 0:
         label = "Greenfield plan (all creates, no cross-boundary impact) — capped at MEDIUM"
-        explanations.append(
-            ScoreExplanation(label=label, delta=0.0, kind="modifier")
-        )
+        explanations.append(ScoreExplanation(label=label, delta=0.0, kind="modifier"))
 
     return explanations
 
@@ -721,16 +767,14 @@ def build_score_explanation(
 def _history_cluster_key(fix: Fix) -> str:
     """Return dedup cluster key: first CamelCase error token, or first 4 words."""
     issue = fix.issue or ""
-    m = re.search(r'[A-Z][a-z]+(?:[A-Z][a-z]+)+', issue)
+    m = re.search(r"[A-Z][a-z]+(?:[A-Z][a-z]+)+", issue)
     if m:
         return m.group()
-    words = re.sub(r'[^\w\s]', '', issue).lower().split()[:4]
-    return ' '.join(words)
+    words = re.sub(r"[^\w\s]", "", issue).lower().split()[:4]
+    return " ".join(words)
 
 
-def _dedup_history_candidates(
-    candidates: list[tuple[Fix, str]]
-) -> list[tuple[Fix, str]]:
+def _dedup_history_candidates(candidates: list[tuple[Fix, str]]) -> list[tuple[Fix, str]]:
     """Cluster by error fingerprint; keep most-complete fix per cluster.
 
     Most complete = has error_excerpt, then most recent created_at.
@@ -797,10 +841,7 @@ def compute_history_prior(
     # Dedup and cap at 3
     deduped = _dedup_history_candidates(candidates)[:3]
 
-    result = [
-        {"id": fix.id[:8], "issue": fix.issue, "resource_type": rt}
-        for fix, rt in deduped
-    ]
+    result = [{"id": fix.id[:8], "issue": fix.issue, "resource_type": rt} for fix, rt in deduped]
     return len(result), result
 
 
@@ -854,8 +895,7 @@ def find_resource_prior_fixes(
         all_fixes = repo.list_all()
         # Pre-compile regex per rt
         rt_patterns = {
-            rt: re.compile(r'\b' + re.escape(rt) + r'\b', re.IGNORECASE)
-            for rt in unique_rts
+            rt: re.compile(r"\b" + re.escape(rt) + r"\b", re.IGNORECASE) for rt in unique_rts
         }
         for rt in unique_rts:
             tag_match_ids: set[str] = set()
@@ -867,7 +907,13 @@ def find_resource_prior_fixes(
             for fix in all_fixes:
                 if fix.id in tag_match_ids:
                     continue
-                searchable = (fix.issue or "") + " " + (fix.resolution or "") + " " + (fix.error_excerpt or "")
+                searchable = (
+                    (fix.issue or "")
+                    + " "
+                    + (fix.resolution or "")
+                    + " "
+                    + (fix.error_excerpt or "")
+                )
                 if pattern.search(searchable):
                     matches.append((fix, "text_match", 60))
             type_cache[rt] = matches
@@ -902,7 +948,9 @@ def find_resource_prior_fixes(
                 # Add resource if not already listed
                 existing_addrs = {r["address"] for r in entry["matched_resources"]}
                 if node.address not in existing_addrs:
-                    entry["matched_resources"].append({"address": node.address, "action": node.action})
+                    entry["matched_resources"].append(
+                        {"address": node.address, "action": node.action}
+                    )
 
     if not warnings_by_fix_id:
         return []
@@ -954,9 +1002,7 @@ def redact_plan_values(change_block: dict) -> dict:
     return result
 
 
-def _collect_sensitive_keys(
-    sensitive_map: dict, prefix: str, out: set[str]
-) -> None:
+def _collect_sensitive_keys(sensitive_map: dict, prefix: str, out: set[str]) -> None:
     """Recursively collect keys marked as sensitive."""
     for key, val in sensitive_map.items():
         full_key = f"{prefix}.{key}" if prefix else key
@@ -966,9 +1012,7 @@ def _collect_sensitive_keys(
             _collect_sensitive_keys(val, full_key, out)
 
 
-def _redact_dict(
-    d: dict, sensitive_keys: set[str], prefix: str
-) -> dict:
+def _redact_dict(d: dict, sensitive_keys: set[str], prefix: str) -> dict:
     """Recursively redact sensitive values in a dict."""
     result = {}
     for key, val in d.items():
@@ -1029,7 +1073,8 @@ def extract_change_fingerprint(change_block: dict) -> dict:
         changed_attrs = sorted(k for k in before if k != "id")
     else:
         changed_attrs = sorted(
-            k for k in set(list(before.keys()) + list(after.keys()))
+            k
+            for k in set(list(before.keys()) + list(after.keys()))
             if k != "id" and before.get(k) != after.get(k)
         )
 
@@ -1039,9 +1084,7 @@ def extract_change_fingerprint(change_block: dict) -> dict:
         if cat:
             attr_categories.add(cat)
 
-    sensitive_changed = any(
-        SENSITIVE_PATTERNS.search(attr) for attr in changed_attrs
-    )
+    sensitive_changed = any(SENSITIVE_PATTERNS.search(attr) for attr in changed_attrs)
 
     return {
         "changed_attrs": changed_attrs,
@@ -1121,11 +1164,13 @@ def generate_contextual_checks(
             check_text = ATTR_CHECKS.get(key)
             if check_text and check_text not in seen_texts:
                 seen_texts.add(check_text)
-                checks.append({
-                    "check": check_text,
-                    "source": "attribute",
-                    "resource": node.address,
-                })
+                checks.append(
+                    {
+                        "check": check_text,
+                        "source": "attribute",
+                        "resource": node.address,
+                    }
+                )
                 # Track categories covered by attr checks
                 cat = ATTR_CATEGORIES.get(attr)
                 if cat:
@@ -1151,11 +1196,13 @@ def generate_contextual_checks(
             matched = rf.get("matched_resources", [])
             if matched:
                 resource = matched[0]["address"]
-            checks.append({
-                "check": check_text,
-                "source": "history",
-                "resource": resource,
-            })
+            checks.append(
+                {
+                    "check": check_text,
+                    "source": "history",
+                    "resource": resource,
+                }
+            )
             history_check_count += 1
 
     # 3. Category fallbacks — only when no attribute-specific checks for that category
@@ -1170,25 +1217,27 @@ def generate_contextual_checks(
                 for check_text in CATEGORY_CHECKS.get(cp[0], []):
                     if check_text not in seen_texts:
                         seen_texts.add(check_text)
-                        checks.append({
-                            "check": check_text,
-                            "source": "category",
-                            "resource": node.address,
-                        })
+                        checks.append(
+                            {
+                                "check": check_text,
+                                "source": "category",
+                                "resource": node.address,
+                            }
+                        )
 
     # 4. Delete checks
-    has_deletes = any(
-        n.action in ("delete", "replace") for n in nodes if is_actionable_change(n)
-    )
+    has_deletes = any(n.action in ("delete", "replace") for n in nodes if is_actionable_change(n))
     if has_deletes:
         for check_text in DELETE_CHECKS:
             if check_text not in seen_texts:
                 seen_texts.add(check_text)
-                checks.append({
-                    "check": check_text,
-                    "source": "category",
-                    "resource": "",
-                })
+                checks.append(
+                    {
+                        "check": check_text,
+                        "source": "category",
+                        "resource": "",
+                    }
+                )
 
     return checks
 
@@ -1325,8 +1374,7 @@ def analyze_change_impact(
         if not (has_boundary or has_destructive):
             l2_affected = []
         all_affected = [
-            ar for ar in l1_affected + l2_affected
-            if not _addr_in_plan(ar.address, changed_addrs)
+            ar for ar in l1_affected + l2_affected if not _addr_in_plan(ar.address, changed_addrs)
         ]
         l1_affected = [ar for ar in all_affected if ar.depth == 1]
         l2_affected = [ar for ar in all_affected if ar.depth >= 2]
@@ -1349,30 +1397,41 @@ def analyze_change_impact(
     # Backward compat: populate legacy fields from relevant_fixes
     resource_warnings = relevant_fixes
     history_matches = [
-        {"id": rf["short_id"], "issue": rf["issue"],
-         "resource_type": rf.get("match_reason", {}).get("resource_type", "")}
+        {
+            "id": rf["short_id"],
+            "issue": rf["issue"],
+            "resource_type": rf.get("match_reason", {}).get("resource_type", ""),
+        }
         for rf in qualifying_fixes[:3]
     ]
 
     # Impact score
     changed_addresses = {n.address for n in nodes}
-    l1_score_count = sum(1 for ar in l1_affected if not _addr_in_plan(ar.address, changed_addresses))
-    l2_score_count = sum(1 for ar in l2_affected if not _addr_in_plan(ar.address, changed_addresses))
+    l1_score_count = sum(
+        1 for ar in l1_affected if not _addr_in_plan(ar.address, changed_addresses)
+    )
+    l2_score_count = sum(
+        1 for ar in l2_affected if not _addr_in_plan(ar.address, changed_addresses)
+    )
 
     score = compute_impact_score(
-        nodes, l1_score_count, l2_score_count, history_count,
+        nodes,
+        l1_score_count,
+        l2_score_count,
+        history_count,
         outcome_failure_count=outcome_failure_count,
     )
     sev = severity_label(score)
 
     # Score explanation bullets
     explanation = build_score_explanation(
-        nodes, l1_score_count, l2_score_count, history_count,
+        nodes,
+        l1_score_count,
+        l2_score_count,
+        history_count,
         outcome_failure_count=outcome_failure_count,
     )
-    score_explanation = [
-        {"label": e.label, "delta": e.delta, "kind": e.kind} for e in explanation
-    ]
+    score_explanation = [{"label": e.label, "delta": e.delta, "kind": e.kind} for e in explanation]
 
     # Contextual checks
     ctx_checks = generate_contextual_checks(nodes, relevant_fixes)
@@ -1398,9 +1457,7 @@ def analyze_change_impact(
         "by_action": {},
     }
     for n in nodes:
-        plan_summary["by_action"][n.action] = (
-            plan_summary["by_action"].get(n.action, 0) + 1
-        )
+        plan_summary["by_action"][n.action] = plan_summary["by_action"].get(n.action, 0) + 1
 
     return ImpactResult(
         score=score,

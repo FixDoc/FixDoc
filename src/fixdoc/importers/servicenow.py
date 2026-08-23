@@ -93,7 +93,9 @@ def extract(
             meta_note = " | ".join(meta_parts) if meta_parts else ""
 
             source_id = _get(row, "number")
-            source_tag = f"source:servicenow:{source_id}" if source_id else "source:servicenow:unknown"
+            source_tag = (
+                f"source:servicenow:{source_id}" if source_id else "source:servicenow:unknown"
+            )
 
             combined = issue + " " + resolution + " " + (error_excerpt or "")
             resource_types, kw_tags = detect_resource_types(combined)

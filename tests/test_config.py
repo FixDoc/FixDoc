@@ -228,9 +228,7 @@ class TestConfigManager:
 
         assert manager.is_sync_configured() is False
 
-        config = FixDocConfig(
-            sync=SyncConfig(remote_url="git@github.com:test/repo.git")
-        )
+        config = FixDocConfig(sync=SyncConfig(remote_url="git@github.com:test/repo.git"))
         manager.save(config)
 
         assert manager.is_sync_configured() is True

@@ -11,7 +11,6 @@ from .config import SuggestionWeights
 from .models import Fix
 from .storage import FixRepository
 
-
 # Patterns to extract resource addresses (type.name)
 _ADDRESS_RE = re.compile(
     r"((?:aws|azurerm|google)_\w+\.\w+)",
@@ -121,12 +120,8 @@ def find_similar_fixes(
         if fix.tags:
             fix_tags = {t.strip().lower() for t in fix.tags.split(",") if t.strip()}
             # Filter out generic resource type tags for tag scoring
-            non_type_input = {
-                t for t in input_tags if not _RESOURCE_TYPE_RE.fullmatch(t)
-            }
-            non_type_fix = {
-                t for t in fix_tags if not _RESOURCE_TYPE_RE.fullmatch(t)
-            }
+            non_type_input = {t for t in input_tags if not _RESOURCE_TYPE_RE.fullmatch(t)}
+            non_type_fix = {t for t in fix_tags if not _RESOURCE_TYPE_RE.fullmatch(t)}
             tag_overlap = non_type_input & non_type_fix
             score += len(tag_overlap) * weights.tag_weight
 
@@ -175,12 +170,8 @@ def _dedup_cluster(
 
     for fix, score in scored_fixes:
         # Build cluster key
-        fix_types = _extract_resource_types(
-            " ".join(filter(None, [fix.tags, fix.error_excerpt]))
-        )
-        fix_codes = _extract_error_codes(
-            (fix.error_excerpt or "").lower()
-        )
+        fix_types = _extract_resource_types(" ".join(filter(None, [fix.tags, fix.error_excerpt])))
+        fix_codes = _extract_error_codes((fix.error_excerpt or "").lower())
         fix_keywords = sorted(_extract_keywords(fix.issue))[:3]
 
         cluster_key = (
@@ -221,7 +212,9 @@ def prompt_similar_fixes(
         issue_preview = fix.issue[:60] + "..." if len(fix.issue) > 60 else fix.issue
         click.echo(f"  [{i}] {fix.id[:8]}{tags_str}")
         click.echo(f"      {issue_preview}")
-        resolution_preview = fix.resolution[:60] + "..." if len(fix.resolution) > 60 else fix.resolution
+        resolution_preview = (
+            fix.resolution[:60] + "..." if len(fix.resolution) > 60 else fix.resolution
+        )
         click.echo(f"      -> {resolution_preview}")
         click.echo()
 
@@ -254,18 +247,99 @@ def _extract_keywords(text: str) -> set[str]:
 
     # Common stop words to ignore
     stop_words = {
-        "the", "a", "an", "is", "are", "was", "were", "be", "been",
-        "being", "have", "has", "had", "do", "does", "did", "will",
-        "would", "could", "should", "may", "might", "must", "shall",
-        "can", "need", "dare", "ought", "used", "to", "of", "in",
-        "for", "on", "with", "at", "by", "from", "as", "into", "through",
-        "during", "before", "after", "above", "below", "between",
-        "under", "again", "further", "then", "once", "here", "there",
-        "when", "where", "why", "how", "all", "each", "few", "more",
-        "most", "other", "some", "such", "no", "nor", "not", "only",
-        "own", "same", "so", "than", "too", "very", "just", "and",
-        "but", "if", "or", "because", "until", "while", "this", "that",
-        "these", "those", "it", "its", "error", "failed", "failure",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "need",
+        "dare",
+        "ought",
+        "used",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "why",
+        "how",
+        "all",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "nor",
+        "not",
+        "only",
+        "own",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "and",
+        "but",
+        "if",
+        "or",
+        "because",
+        "until",
+        "while",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "error",
+        "failed",
+        "failure",
     }
 
     # Extract words, lowercase, filter
@@ -288,30 +362,39 @@ def _extract_error_codes(text: str) -> set[str]:
     codes.update(c.lower() for c in azure_codes)
 
     # HTTP status codes
-    http_codes = re.findall(r'\b(4\d{2}|5\d{2})\b', text)
+    http_codes = re.findall(r"\b(4\d{2}|5\d{2})\b", text)
     codes.update(http_codes)
 
     # Terraform Error: <ErrorName>
-    tf_errors = re.findall(r'error:\s+(\w+(?:\.\w+)*)', text, re.IGNORECASE)
+    tf_errors = re.findall(r"error:\s+(\w+(?:\.\w+)*)", text, re.IGNORECASE)
     codes.update(e.lower() for e in tf_errors)
 
     # XML-ish cloud errors: <Code>ErrorName</Code>
-    xml_codes = re.findall(r'<code>(\w+)</code>', text, re.IGNORECASE)
+    xml_codes = re.findall(r"<code>(\w+)</code>", text, re.IGNORECASE)
     codes.update(c.lower() for c in xml_codes)
 
     # StatusCode patterns
-    status_codes = re.findall(r'statuscode[=:]?\s*(\d+)', text, re.IGNORECASE)
+    status_codes = re.findall(r"statuscode[=:]?\s*(\d+)", text, re.IGNORECASE)
     codes.update(status_codes)
 
     # AWS SDK: api error ErrorName
-    api_errors = re.findall(r'api error (\w+(?:\.\w+)*)', text, re.IGNORECASE)
+    api_errors = re.findall(r"api error (\w+(?:\.\w+)*)", text, re.IGNORECASE)
     codes.update(e.lower() for e in api_errors)
 
     # Common error names
     error_patterns = [
-        "accessdenied", "authorizationfailed", "forbidden", "unauthorized",
-        "notfound", "timeout", "connectionrefused", "permissiondenied",
-        "invalidrequest", "quotaexceeded", "throttled", "conflict",
+        "accessdenied",
+        "authorizationfailed",
+        "forbidden",
+        "unauthorized",
+        "notfound",
+        "timeout",
+        "connectionrefused",
+        "permissiondenied",
+        "invalidrequest",
+        "quotaexceeded",
+        "throttled",
+        "conflict",
     ]
     for pattern in error_patterns:
         if pattern in text:
@@ -325,15 +408,15 @@ def _extract_resource_types(text: str) -> set[str]:
     types = set()
 
     # AWS resource types
-    aws_types = re.findall(r'(aws_\w+)', text, re.IGNORECASE)
+    aws_types = re.findall(r"(aws_\w+)", text, re.IGNORECASE)
     types.update(t.lower() for t in aws_types)
 
     # Azure resource types
-    azure_types = re.findall(r'(azurerm_\w+)', text, re.IGNORECASE)
+    azure_types = re.findall(r"(azurerm_\w+)", text, re.IGNORECASE)
     types.update(t.lower() for t in azure_types)
 
     # GCP resource types
-    gcp_types = re.findall(r'(google_\w+)', text, re.IGNORECASE)
+    gcp_types = re.findall(r"(google_\w+)", text, re.IGNORECASE)
     types.update(t.lower() for t in gcp_types)
 
     return types

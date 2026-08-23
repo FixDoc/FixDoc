@@ -10,7 +10,6 @@ from fixdoc.parsers.kubernetes import (
 )
 from fixdoc.parsers.base import ErrorSeverity
 
-
 # Get the fixtures directory
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "kubernetes"
 
@@ -86,7 +85,10 @@ class TestKubectlApplyErrors:
 
         assert len(errors) >= 1
         error = errors[0]
-        assert "serviceaccount" in error.error_message.lower() or "service account" in error.error_message.lower()
+        assert (
+            "serviceaccount" in error.error_message.lower()
+            or "service account" in error.error_message.lower()
+        )
 
     def test_parse_yaml_syntax_error(self):
         text = """
@@ -395,7 +397,11 @@ class TestFixtureFiles:
 
         parsed_count = 0
         for i, case in enumerate(test_cases):
-            if "Error" not in case and "ImagePullBackOff" not in case and "CrashLoopBackOff" not in case:
+            if (
+                "Error" not in case
+                and "ImagePullBackOff" not in case
+                and "CrashLoopBackOff" not in case
+            ):
                 continue
 
             errors = self.parser.parse(case)

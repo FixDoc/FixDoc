@@ -19,16 +19,16 @@ def _reopen_stdin_from_terminal() -> bool:
     """Reopen stdin from terminal after reading piped input."""
     try:
         # Unix/Mac
-        if os.path.exists('/dev/tty'):
-            sys.stdin = open('/dev/tty', 'r')
+        if os.path.exists("/dev/tty"):
+            sys.stdin = open("/dev/tty", "r")
             return True
     except OSError:
         pass
 
     try:
         # Windows
-        if sys.platform == 'win32':
-            sys.stdin = open('CON', 'r')
+        if sys.platform == "win32":
+            sys.stdin = open("CON", "r")
             return True
     except OSError:
         pass
@@ -38,11 +38,17 @@ def _reopen_stdin_from_terminal() -> bool:
 
 @click.command()
 @click.option(
-    "--quick", "-q", type=str, default=None,
+    "--quick",
+    "-q",
+    type=str,
+    default=None,
     help="Quick capture: 'issue | resolution'",
 )
 @click.option(
-    "--tags", "-t", type=str, default=None,
+    "--tags",
+    "-t",
+    type=str,
+    default=None,
     help="Tags (comma-separated)",
 )
 @click.pass_context

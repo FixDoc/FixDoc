@@ -44,9 +44,7 @@ class Outcome:
     link_type: str = "none"  # "fingerprint" | "none"
 
     # Metadata
-    recorded_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    recorded_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     applied_at: Optional[str] = None
     project_dir: Optional[str] = None
     status: str = "analyzed"  # "analyzed" | "applied"
@@ -91,9 +89,7 @@ def compute_plan_fingerprint(plan: dict) -> str:
         # Include changed attribute names for precision
         before = rc.get("change", {}).get("before") or {}
         after = rc.get("change", {}).get("after") or {}
-        changed_attrs = sorted(
-            k for k in set(before) | set(after) if before.get(k) != after.get(k)
-        )
+        changed_attrs = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
         changes.append((addr, actions, tuple(changed_attrs)))
     changes.sort()
     raw = json.dumps(changes, sort_keys=True)
@@ -148,9 +144,7 @@ class OutcomeStore:
     def find_by_fingerprint(self, fingerprint: str) -> list[Outcome]:
         """Find outcomes matching a plan fingerprint."""
         return [
-            Outcome.from_dict(e)
-            for e in self._read()
-            if e.get("plan_fingerprint") == fingerprint
+            Outcome.from_dict(e) for e in self._read() if e.get("plan_fingerprint") == fingerprint
         ]
 
     def update_apply_result(

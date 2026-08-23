@@ -14,4 +14,20 @@ from .import_cmd import import_group
 from .resolve import resolve
 from .outcome import outcome
 
-__all__ = ["capture", "search", "show", "analyze", "list_fixes", "stats", "delete", "edit", "sync", "demo", "watch", "pending", "import_group", "resolve", "outcome"]
+__all__ = [
+    "capture",
+    "search",
+    "show",
+    "analyze",
+    "list_fixes",
+    "stats",
+    "delete",
+    "edit",
+    "sync",
+    "demo",
+    "watch",
+    "pending",
+    "import_group",
+    "resolve",
+    "outcome",
+]

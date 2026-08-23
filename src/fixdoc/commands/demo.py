@@ -46,9 +46,7 @@ def seed(ctx, clean: bool):
     click.echo(f"Seeded {len(fixes)} demo fixes:")
     for fix in fixes:
         click.echo(f"  {fix.summary()}")
-    click.echo(
-        "\nRun `fixdoc list` to see them, or `fixdoc search S3` to try searching."
-    )
+    click.echo("\nRun `fixdoc list` to see them, or `fixdoc search S3` to try searching.")
 
 
 def _clean_demo_fixes(repo: FixRepository) -> None:

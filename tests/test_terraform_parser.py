@@ -6,7 +6,6 @@ from pathlib import Path
 from fixdoc.parsers.terraform import TerraformParser, TerraformError
 from fixdoc.parsers.base import CloudProvider, ErrorSeverity
 
-
 # Get the fixtures directory
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "terraform"
 
@@ -117,7 +116,10 @@ class TestAWSErrorParsing:
         error = errors[0]
         assert error.cloud_provider == CloudProvider.AWS
         assert error.resource_type == "aws_instance"
-        assert "InsufficientInstanceCapacity" in error.error_code or "capacity" in error.error_message.lower()
+        assert (
+            "InsufficientInstanceCapacity" in error.error_code
+            or "capacity" in error.error_message.lower()
+        )
 
     def test_generates_aws_suggestions(self):
         text = """
@@ -137,7 +139,9 @@ class TestAWSErrorParsing:
         assert error.cloud_provider == CloudProvider.AWS
         # Should have suggestions for BucketAlreadyExists
         assert len(error.suggestions) > 0
-        assert any("unique" in s.lower() or "different name" in s.lower() for s in error.suggestions)
+        assert any(
+            "unique" in s.lower() or "different name" in s.lower() for s in error.suggestions
+        )
 
 
 class TestAzureErrorParsing:
@@ -505,8 +509,8 @@ class TestTFConfigErrors:
         text = (
             "Error: Invalid default value for variable\n"
             "\n"
-            "  on variables.tf line 17, in variable \"instance_count\":\n"
-            "  17: default = \"not-a-number\"\n"
+            '  on variables.tf line 17, in variable "instance_count":\n'
+            '  17: default = "not-a-number"\n'
             "\n"
             "This default value is not compatible with the variable's type constraint."
         )
@@ -522,7 +526,7 @@ class TestTFConfigErrors:
         text = (
             "Error: Reference to undeclared output value\n"
             "\n"
-            "  on outputs.tf line 3, in output \"vpc_id\":\n"
+            '  on outputs.tf line 3, in output "vpc_id":\n'
         )
         errors = self.parser.parse(text)
         assert len(errors) == 1
@@ -530,22 +534,14 @@ class TestTFConfigErrors:
 
     def test_local_error_address(self):
         """Error in local block → resource_address=local.<name>."""
-        text = (
-            "Error: Unsupported argument\n"
-            "\n"
-            "  on main.tf line 5, in local \"tags\":\n"
-        )
+        text = "Error: Unsupported argument\n" "\n" '  on main.tf line 5, in local "tags":\n'
         errors = self.parser.parse(text)
         assert len(errors) == 1
         assert errors[0].resource_address == "local.tags"
 
     def test_module_call_error_address(self):
         """Error in module block → resource_address=module.<name>."""
-        text = (
-            "Error: Missing required argument\n"
-            "\n"
-            "  on main.tf line 10, in module \"vpc\":\n"
-        )
+        text = "Error: Missing required argument\n" "\n" '  on main.tf line 10, in module "vpc":\n'
         errors = self.parser.parse(text)
         assert len(errors) == 1
         assert errors[0].resource_address == "module.vpc"
@@ -582,7 +578,7 @@ class TestTFConfigErrors:
         text = (
             "Error: Invalid default value for variable\n"
             "\n"
-            "  on variables.tf line 5, in variable \"count\":\n"
+            '  on variables.tf line 5, in variable "count":\n'
         )
         errors = self.parser.parse(text)
         assert errors[0].error_code == "InvalidDefaultValue"
@@ -593,7 +589,7 @@ class TestTFConfigErrors:
             "Error: creating S3 Bucket (my-bucket): BucketAlreadyExists\n"
             "\n"
             "  with aws_s3_bucket.data,\n"
-            "  on main.tf line 5, in resource \"aws_s3_bucket\" \"data\":\n"
+            '  on main.tf line 5, in resource "aws_s3_bucket" "data":\n'
         )
         errors = self.parser.parse(text)
         assert len(errors) == 1
@@ -618,42 +614,42 @@ The argument "runtime" is required, but no definition was found.
     def test_provider_address_extracted(self):
         """Provider errors like 'with provider[\"registry...\"]' should get a provider address."""
         text = (
-            '│ Error: error configuring Terraform AWS Provider: failed to get shared config profile\n'
-            '│\n'
+            "│ Error: error configuring Terraform AWS Provider: failed to get shared config profile\n"
+            "│\n"
             '│   with provider["registry.terraform.io/hashicorp/aws"],\n'
             '│   on main.tf line 1, in provider "aws":\n'
             '│    1: provider "aws" {\n'
         )
         errors = self.parser.parse(text)
         assert len(errors) == 1
-        assert errors[0].resource_address == 'provider.aws'
-        assert errors[0].resource_type == 'provider'
-        assert errors[0].resource_name == 'aws'
+        assert errors[0].resource_address == "provider.aws"
+        assert errors[0].resource_type == "provider"
+        assert errors[0].resource_name == "aws"
 
     def test_provider_address_with_alias(self):
         """Provider with alias like provider[\"registry.../hashicorp/aws\"].west extracts correctly."""
         text = (
-            '│ Error: error configuring Terraform AWS Provider\n'
-            '│\n'
+            "│ Error: error configuring Terraform AWS Provider\n"
+            "│\n"
             '│   with provider["registry.terraform.io/hashicorp/aws"].west,\n'
             '│   on main.tf line 5, in provider "aws":\n'
         )
         errors = self.parser.parse(text)
         assert len(errors) == 1
-        assert errors[0].resource_address == 'provider.aws.west'
+        assert errors[0].resource_address == "provider.aws.west"
 
     def test_provider_address_non_hashicorp(self):
         """Third-party provider like provider[\"registry.../datadog/datadog\"]."""
         text = (
-            '│ Error: error configuring Datadog Provider\n'
-            '│\n'
+            "│ Error: error configuring Datadog Provider\n"
+            "│\n"
             '│   with provider["registry.terraform.io/datadog/datadog"],\n'
-            '│   on main.tf line 10:\n'
+            "│   on main.tf line 10:\n"
         )
         errors = self.parser.parse(text)
         assert len(errors) == 1
-        assert errors[0].resource_address == 'provider.datadog'
-        assert errors[0].resource_name == 'datadog'
+        assert errors[0].resource_address == "provider.datadog"
+        assert errors[0].resource_name == "datadog"
 
     def test_error_id_computed_for_terraform_errors(self):
         """TerraformError.__post_init__ should call super() to compute error_id."""

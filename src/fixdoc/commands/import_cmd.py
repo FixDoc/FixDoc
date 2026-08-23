@@ -45,9 +45,7 @@ def _print_summary(result: ImportResult, system: str) -> None:
     """Print the import summary table."""
     click.echo("")
     click.echo("─" * 50)
-    click.echo(
-        f"  Import summary ({system})" + (" [DRY RUN]" if result.dry_run else "")
-    )
+    click.echo(f"  Import summary ({system})" + (" [DRY RUN]" if result.dry_run else ""))
     click.echo("─" * 50)
     click.echo(f"  imported     : {result.imported}")
     click.echo(f"  skipped      : {result.skipped}")
@@ -76,9 +74,7 @@ def _show_card(index: int, total: int, fix, source_id: str, system: str) -> None
     """Display a review card for a fix candidate."""
     click.echo(f"\n[{index}/{total}] {source_id}")
     click.echo(f"  issue      : {fix.issue[:80]}{'...' if len(fix.issue) > 80 else ''}")
-    click.echo(
-        f"  resolution : {fix.resolution[:80]}{'...' if len(fix.resolution) > 80 else ''}"
-    )
+    click.echo(f"  resolution : {fix.resolution[:80]}{'...' if len(fix.resolution) > 80 else ''}")
     click.echo(f"  tags       : {fix.tags or ''}")
     click.echo(f"  type       : {fix.memory_type}")
     click.echo(f"  source     : {system} / {source_id}")
@@ -180,10 +176,14 @@ def _review_flow(
                 type_default = classify_memory_type(new_resolution)
             else:
                 type_default = fix.memory_type
-            new_type = click.prompt(
-                "  type [f]ix/[c]heck/[p]laybook/[i]nsight",
-                default=type_default,
-            ).strip().lower()
+            new_type = (
+                click.prompt(
+                    "  type [f]ix/[c]heck/[p]laybook/[i]nsight",
+                    default=type_default,
+                )
+                .strip()
+                .lower()
+            )
             fix.memory_type = _resolve_type_shorthand(new_type)
 
             # Re-append source tag after edit
@@ -203,9 +203,7 @@ def _review_flow(
             result.imported += 1
         elif choice == "a" and not dry_run:
             # Accept remaining
-            apply_filter = click.confirm(
-                "Apply low-signal filter to remaining?", default=True
-            )
+            apply_filter = click.confirm("Apply low-signal filter to remaining?", default=True)
             # Process remaining (including current)
             for remaining_fix in fixes[i:]:
                 r_source_tag = _find_source_tag(remaining_fix)
@@ -291,9 +289,7 @@ def _shared_options(allow_description_option: bool = False):
                 default=False,
                 help="Parse and report without saving",
             ),
-            click.option(
-                "--max", "max_rows", type=int, default=None, help="Max rows to process"
-            ),
+            click.option("--max", "max_rows", type=int, default=None, help="Max rows to process"),
             click.option(
                 "--tags",
                 "extra_tags",
@@ -353,9 +349,7 @@ def import_group():
     default=False,
     help="Auto mode: skip review, apply low-signal filter",
 )
-@click.option(
-    "--dry-run", is_flag=True, default=False, help="Parse and report without saving"
-)
+@click.option("--dry-run", is_flag=True, default=False, help="Parse and report without saving")
 @click.option("--max", "max_rows", type=int, default=None, help="Max rows to process")
 @click.option(
     "--tags",
@@ -425,9 +419,7 @@ def jira_import(ctx, file, closed, auto, dry_run, max_rows, extra_tags):
     default=False,
     help="Auto mode: skip review, apply low-signal filter",
 )
-@click.option(
-    "--dry-run", is_flag=True, default=False, help="Parse and report without saving"
-)
+@click.option("--dry-run", is_flag=True, default=False, help="Parse and report without saving")
 @click.option("--max", "max_rows", type=int, default=None, help="Max rows to process")
 @click.option(
     "--tags",
@@ -529,12 +521,8 @@ def snow_import(
     default=False,
     help="Auto mode: skip review, apply low-signal filter.",
 )
-@click.option(
-    "--dry-run", is_flag=True, default=False, help="Parse and report without saving."
-)
-@click.option(
-    "--max", "max_count", type=int, default=None, help="Max pages to process."
-)
+@click.option("--dry-run", is_flag=True, default=False, help="Parse and report without saving.")
+@click.option("--max", "max_count", type=int, default=None, help="Max pages to process.")
 @click.option(
     "--tags",
     "extra_tags",
@@ -605,9 +593,7 @@ def notion_cmd(
     envvar="SLACK_TOKEN",
     help="Slack bot token (xoxb-...). Also reads SLACK_TOKEN env var.",
 )
-@click.option(
-    "--channel", "channels", multiple=True, help="Channel ID (C0XXXXXXX). Repeatable."
-)
+@click.option("--channel", "channels", multiple=True, help="Channel ID (C0XXXXXXX). Repeatable.")
 @click.option(
     "--channel-name",
     "channel_names",
@@ -636,12 +622,8 @@ def notion_cmd(
     default=False,
     help="Auto mode: skip review, apply low-signal filter.",
 )
-@click.option(
-    "--dry-run", is_flag=True, default=False, help="Parse and report without saving."
-)
-@click.option(
-    "--max", "max_count", type=int, default=None, help="Max threads to import."
-)
+@click.option("--dry-run", is_flag=True, default=False, help="Parse and report without saving.")
+@click.option("--max", "max_count", type=int, default=None, help="Max threads to import.")
 @click.option(
     "--tags",
     "extra_tags",

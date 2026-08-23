@@ -15,6 +15,7 @@ def get_sync_context(base_path: Optional[Path] = None):
     """Get shared objects for sync commands."""
     if base_path is None:
         from ..config import resolve_base_path
+
         base_path = resolve_base_path()
     return {
         "repo": FixRepository(base_path),
@@ -140,7 +141,9 @@ def push(ctx, message: Optional[str], push_all: bool):
         click.echo("Auto-pulling latest changes...")
         pull_result = engine.execute_pull()
         if not pull_result.success and pull_result.conflicts:
-            click.echo("Conflicts detected. Please resolve with 'fixdoc sync pull' first.", err=True)
+            click.echo(
+                "Conflicts detected. Please resolve with 'fixdoc sync pull' first.", err=True
+            )
             raise SystemExit(1)
 
     fixes = engine.prepare_push(push_all=push_all)

@@ -81,8 +81,9 @@ def _track_effectiveness_failure(entries, repo):
             repo.save(fix)
 
 
-def _capture_error_for_watch(err: ParsedError, tags: Optional[str],
-                             repo: FixRepository, config) -> Optional:
+def _capture_error_for_watch(
+    err: ParsedError, tags: Optional[str], repo: FixRepository, config
+) -> Optional:
     """Route a single error through the appropriate capture function."""
     if err.error_type in ("kubectl", "helm", "kubernetes"):
         return capture_single_k8s_error(err, err.raw_output, tags, repo, config)
@@ -145,16 +146,10 @@ def _diagnose_errors_inline(entries, config):
         click.echo("Warning: --diagnose requires ANTHROPIC_API_KEY.", err=True)
         return
 
-    max_errors = getattr(
-        getattr(config, "diagnosis", None), "max_errors", 3
-    )
-    model = getattr(
-        getattr(config, "diagnosis", None), "model", "claude-haiku-4-5-20251001"
-    )
+    max_errors = getattr(getattr(config, "diagnosis", None), "max_errors", 3)
+    model = getattr(getattr(config, "diagnosis", None), "model", "claude-haiku-4-5-20251001")
 
-    results = diagnose_errors(
-        entries, api_key=api_key, max_errors=max_errors, model=model
-    )
+    results = diagnose_errors(entries, api_key=api_key, max_errors=max_errors, model=model)
 
     if not results:
         return
@@ -188,8 +183,7 @@ def _maybe_notify_slack(entries, suggestions, config, command_str, notify_flag):
     channel = config.notification.slack_channel
     if not channel:
         click.echo(
-            "Warning: Slack notification requires "
-            "notification.slack_channel in config.",
+            "Warning: Slack notification requires " "notification.slack_channel in config.",
             err=True,
         )
         return
@@ -307,6 +301,7 @@ def watch(ctx, command, tags, no_prompt, diagnose, notify):
         if not errors:
             # Generic error — one entry
             from ..parsers.base import compute_error_id
+
             generic_entry = PendingEntry(
                 error_id=compute_error_id(error_message=output_text),
                 error_type="generic",
@@ -350,9 +345,7 @@ def watch(ctx, command, tags, no_prompt, diagnose, notify):
             suggestions = _show_fix_suggestions_list(memory_worthy, repo)
             if diagnose or config.diagnosis.enabled:
                 _diagnose_errors_inline(memory_worthy, config)
-            _maybe_notify_slack(
-                memory_worthy, suggestions, config, command_str, notify
-            )
+            _maybe_notify_slack(memory_worthy, suggestions, config, command_str, notify)
             sys.exit(exit_code)
 
         # Defer summary card
@@ -368,9 +361,7 @@ def watch(ctx, command, tags, no_prompt, diagnose, notify):
         suggestions = _show_fix_suggestions_list(memory_worthy, repo)
         if diagnose or config.diagnosis.enabled:
             _diagnose_errors_inline(memory_worthy, config)
-        _maybe_notify_slack(
-            memory_worthy, suggestions, config, command_str, notify
-        )
+        _maybe_notify_slack(memory_worthy, suggestions, config, command_str, notify)
 
         if memory_worthy:
             click.echo("I'll ask what fixed these on your next successful run.")
@@ -425,9 +416,7 @@ def watch(ctx, command, tags, no_prompt, diagnose, notify):
             _track_effectiveness_success(matches, repo)
             resolve_pending_entries(matches, repo, config, store)
             # Auto-resolve self-explanatory entries from same session
-            all_session = store.find_latest_session(
-                cwd, family, include_self_explanatory=True
-            )
+            all_session = store.find_latest_session(cwd, family, include_self_explanatory=True)
             for e in all_session:
                 if e.worthiness == "self_explanatory":
                     store.remove(e.error_id)

@@ -35,10 +35,7 @@ def _parse_comment(raw: str) -> str:
 
 def is_closed(row: dict) -> bool:
     """True if status is Done/Closed/Resolved (excludes Won't Do)."""
-    status = (
-        row.get("status", "")
-        or row.get("status category", "")
-    ).strip().lower()
+    status = (row.get("status", "") or row.get("status category", "")).strip().lower()
     return status in _CLOSED_STATUSES
 
 
@@ -90,7 +87,9 @@ def _json_row_to_fields(issue: dict) -> Optional[dict]:
         return None
 
     resolution_obj = fields.get("resolution") or {}
-    resolution = str(resolution_obj.get("name") or "").strip() if isinstance(resolution_obj, dict) else ""
+    resolution = (
+        str(resolution_obj.get("name") or "").strip() if isinstance(resolution_obj, dict) else ""
+    )
 
     if not resolution:
         comment_obj = fields.get("comment") or {}

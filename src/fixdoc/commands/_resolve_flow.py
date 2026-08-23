@@ -8,9 +8,7 @@ from ..pending import PendingEntry, PendingStore
 from ..storage import FixRepository
 from .capture_handlers import handle_piped_input
 
-_UUID_RE = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I
-)
+_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 _REQID_RE = re.compile(r"RequestID:\s*\S+", re.I)
 
 

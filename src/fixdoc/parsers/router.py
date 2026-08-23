@@ -15,10 +15,11 @@ from .kubernetes import KubernetesParser, KubernetesError
 
 class ErrorSource(Enum):
     """Detected error source."""
+
     TERRAFORM = "terraform"
     KUBERNETES = "kubernetes"
     HELM = "helm"
-    ANSIBLE = "ansible"  # Future support 
+    ANSIBLE = "ansible"  # Future support
     UNKNOWN = "unknown"
 
 
@@ -42,9 +43,14 @@ def detect_error_source(text: str) -> ErrorSource:
     """
     # Check for Helm first (subset of Kubernetes)
     helm_indicators = [
-        'helm install', 'helm upgrade', 'helm rollback',
-        'INSTALLATION FAILED', 'UPGRADE FAILED', 'ROLLBACK FAILED',
-        'helm template', 'release "',
+        "helm install",
+        "helm upgrade",
+        "helm rollback",
+        "INSTALLATION FAILED",
+        "UPGRADE FAILED",
+        "ROLLBACK FAILED",
+        "helm template",
+        'release "',
     ]
     if any(ind.lower() in text.lower() for ind in helm_indicators):
         return ErrorSource.HELM

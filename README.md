@@ -99,7 +99,7 @@ pip install fixdoc
 
 > **Note:** After installing with pip, make sure `fixdoc` is on your PATH. If the command isn't found, run `pip show -f fixdoc | grep fixdoc` to find the binary location and add that directory to your `PATH`, or use `python3 -m fixdoc` as an alternative.
 
-Requires Python 3.9+. Runtime dependencies: `click` and `pyyaml` only.
+Requires Python 3.10+. Runtime dependencies: `click` and `pyyaml` only.
 
 **Optional — AI-powered plan explanations:**
 
@@ -363,7 +363,7 @@ fixdoc analyze plan.json --exit-on low        # fail on any non-zero score
 
 ## Local Development & Testing
 
-Prerequisites: Python 3.9+, Docker, Docker Compose, Terraform ≥ 1.5
+Prerequisites: Python 3.10+, Docker, Docker Compose, Terraform ≥ 1.5
 
 ```bash
 bash scripts/setup-dev.sh   # check deps + install Python packages

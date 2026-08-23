@@ -30,6 +30,7 @@ def compute_error_id(
 
 class CloudProvider(Enum):
     """Cloud provider enumeration."""
+
     AWS = "aws"
     AZURE = "azure"
     GCP = "gcp"
@@ -38,6 +39,7 @@ class CloudProvider(Enum):
 
 class ErrorSeverity(Enum):
     """Error severity levels."""
+
     CRITICAL = "critical"
     ERROR = "error"
     WARNING = "warning"

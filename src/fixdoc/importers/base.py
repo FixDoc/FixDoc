@@ -10,14 +10,15 @@ from typing import Optional
 from ..classifier import classify_memory_type
 from ..models import Fix
 
-
 # ---------------------------------------------------------------------------
 # ImportResult
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ImportResult:
     """Summary of an import run."""
+
     imported: int = 0
     skipped: int = 0
     duplicates: int = 0
@@ -30,6 +31,7 @@ class ImportResult:
 # ---------------------------------------------------------------------------
 # CSV / JSON parsing
 # ---------------------------------------------------------------------------
+
 
 def parse_csv(path: Path) -> tuple:
     """
@@ -54,9 +56,7 @@ def parse_csv(path: Path) -> tuple:
         reader = csv.DictReader(fh, delimiter=delimiter)
 
         if reader.fieldnames:
-            reader.fieldnames = [
-                (h.strip().lower() if h else h) for h in reader.fieldnames
-            ]
+            reader.fieldnames = [(h.strip().lower() if h else h) for h in reader.fieldnames]
 
         for raw in reader:
             try:
@@ -158,12 +158,21 @@ def normalize_tags(
 # Resource-type / keyword detection
 # ---------------------------------------------------------------------------
 
-_RESOURCE_TYPE_RE = re.compile(
-    r"\b(aws_\w+|azurerm_\w+|google_\w+|kubernetes_\w+)\b"
-)
+_RESOURCE_TYPE_RE = re.compile(r"\b(aws_\w+|azurerm_\w+|google_\w+|kubernetes_\w+)\b")
 _KEYWORDS = [
-    "iam", "s3", "ec2", "terraform", "rbac", "alb", "rds",
-    "lambda", "vpc", "security_group", "subnet", "bucket", "role",
+    "iam",
+    "s3",
+    "ec2",
+    "terraform",
+    "rbac",
+    "alb",
+    "rds",
+    "lambda",
+    "vpc",
+    "security_group",
+    "subnet",
+    "bucket",
+    "role",
 ]
 _KW_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(k) for k in _KEYWORDS) + r")\b",

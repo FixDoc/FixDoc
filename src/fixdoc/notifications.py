@@ -65,10 +65,12 @@ def _build_blocks(entries, suggestions, cwd=None, command=None):
     if cwd:
         header_text += f"\nDirectory: `{cwd}`"
 
-    blocks.append({
-        "type": "section",
-        "text": {"type": "mrkdwn", "text": header_text},
-    })
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": header_text},
+        }
+    )
 
     blocks.append({"type": "divider"})
 
@@ -80,10 +82,12 @@ def _build_blocks(entries, suggestions, cwd=None, command=None):
     if len(entries) > 5:
         error_lines.append(f"... and {len(entries) - 5} more")
 
-    blocks.append({
-        "type": "section",
-        "text": {"type": "mrkdwn", "text": "\n".join(error_lines)},
-    })
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "\n".join(error_lines)},
+        }
+    )
 
     if suggestions:
         blocks.append({"type": "divider"})
@@ -91,10 +95,12 @@ def _build_blocks(entries, suggestions, cwd=None, command=None):
         for entry_label, fix in suggestions[:3]:
             res_preview = format_suggestion_preview(fix, max_len=80)
             fix_lines.append(f"  `{fix.id[:8]}`: {res_preview}")
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "\n".join(fix_lines)},
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "\n".join(fix_lines)},
+            }
+        )
 
     return blocks
 
