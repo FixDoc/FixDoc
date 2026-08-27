@@ -13,7 +13,7 @@ from .commands import init_command, serve
 
 def create_cli() -> click.Group:
     @click.group()
-    @click.version_option(version="0.1.0", prog_name="fixdoc")
+    @click.version_option(package_name="fixdoc", prog_name="fixdoc")
     def cli():
         """FixDoc — the incident knowledge store your AI agents query over MCP."""
 
