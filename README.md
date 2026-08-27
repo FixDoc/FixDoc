@@ -49,6 +49,16 @@ Verification). Search embeds the symptom; results return the fix. Embeddings
 run fully local (`bge-small-en-v1.5` via fastembed) — no account, no network
 call in the query path.
 
+## Where things stand (v0.1.0)
+
+Working and verified today: the four MCP tools end to end with a live agent,
+semantic retrieval with trust-weighted ranking and token budgets, the
+quarantine write path with dedup, the events log, local embeddings, and
+`fixdoc init`. Next up, in order: day-0 ingestion (feed logs and postmortems
+in, get a classified, secret-redacted, quarantined store out), Slack/Jira/
+ServiceNow/Notion importers, the ops surface (`status`, `promote`, `doctor`),
+and the eval harness.
+
 ## Developing
 
 ```bash
