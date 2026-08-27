@@ -140,9 +140,7 @@ class TestModelClassification:
         ingest_mod = importlib.import_module("fixdoc.commands.ingest")
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        monkeypatch.setattr(
-            ingest_mod, "model_worthiness", lambda items, model=None: [True] * len(items)
-        )
+        monkeypatch.setattr(ingest_mod, "model_worthiness", lambda items, **kw: [True] * len(items))
         # rules call this noise; the model says keep -> it must reach the queue
         result = run_ingest(tmp_path, "noise.log")
         assert result.exit_code == 0, result.output
@@ -155,7 +153,7 @@ class TestModelClassification:
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
-        def boom(items, model=None):
+        def boom(items, **kw):
             raise RuntimeError("api down")
 
         monkeypatch.setattr(ingest_mod, "model_worthiness", boom)
@@ -170,3 +168,60 @@ class TestModelClassification:
         result = run_ingest(tmp_path, "terraform_apply.log")
         assert result.exit_code == 0, result.output
         assert "rule-based" in result.output.lower()
+
+
+class TestClassificationConfig:
+    def write_config(self, tmp_path, block):
+        cfg = tmp_path / ".fixdoc"
+        cfg.mkdir(exist_ok=True)
+        (cfg / "config.yaml").write_text("spec_version: 1\n" + block)
+
+    def test_config_names_the_key_env_var(self, tmp_path, monkeypatch):
+        ingest_mod = importlib.import_module("fixdoc.commands.ingest")
+        self.write_config(tmp_path, "classification:\n  api_key_env: TEAM_LLM_KEY\n")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("TEAM_LLM_KEY", "secret-from-ci")
+        seen = {}
+
+        def fake(items, model=None, api_key=None, base_url=None):
+            seen.update(model=model, api_key=api_key, base_url=base_url)
+            return [True] * len(items)
+
+        monkeypatch.setattr(ingest_mod, "model_worthiness", fake)
+        result = run_ingest(tmp_path, "terraform_apply.log")
+        assert result.exit_code == 0, result.output
+        assert seen["api_key"] == "secret-from-ci"
+
+    def test_config_model_and_base_url_travel_with_the_key(self, tmp_path, monkeypatch):
+        ingest_mod = importlib.import_module("fixdoc.commands.ingest")
+        self.write_config(
+            tmp_path,
+            "classification:\n  model: my-gateway-model\n"
+            "  api_key_env: GATEWAY_KEY\n  base_url: https://llm.internal/v1\n",
+        )
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("GATEWAY_KEY", "gw-key")
+        seen = {}
+
+        def fake(items, model=None, api_key=None, base_url=None):
+            seen.update(model=model, base_url=base_url)
+            return [True] * len(items)
+
+        monkeypatch.setattr(ingest_mod, "model_worthiness", fake)
+        run_ingest(tmp_path, "terraform_apply.log")
+        assert seen["model"] == "my-gateway-model"
+        assert seen["base_url"] == "https://llm.internal/v1"
+
+    def test_flag_overrides_config_model(self, tmp_path, monkeypatch):
+        ingest_mod = importlib.import_module("fixdoc.commands.ingest")
+        self.write_config(tmp_path, "classification:\n  model: from-config\n")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+        seen = {}
+
+        def fake(items, model=None, api_key=None, base_url=None):
+            seen.update(model=model)
+            return [True] * len(items)
+
+        monkeypatch.setattr(ingest_mod, "model_worthiness", fake)
+        run_ingest(tmp_path, "terraform_apply.log", args=("--classify-model", "from-flag"))
+        assert seen["model"] == "from-flag"

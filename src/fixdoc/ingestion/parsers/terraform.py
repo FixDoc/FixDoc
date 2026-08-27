@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from .base import ParsedError, ErrorParser, CloudProvider, ErrorSeverity
+from .base import CloudProvider, ErrorParser, ErrorSeverity, ParsedError
 
 # Cloud provider detection patterns
 AWS_RESOURCE_PATTERN = re.compile(r"\baws_[a-z_]+\b", re.IGNORECASE)

@@ -7,8 +7,10 @@ queue nobody can review is worth nothing.
 """
 
 import os
+from pathlib import Path
 
 import click
+import yaml
 
 from fixdoc.ingestion.model_classify import DEFAULT_CLASSIFY_MODEL, model_worthiness
 from fixdoc.ingestion.pipeline import ingest_paths
@@ -34,18 +36,29 @@ from fixdoc.ingestion.pipeline import ingest_paths
 @click.option("--dry-run", is_flag=True, help="Report what would happen; write nothing.")
 @click.option(
     "--classify-model",
-    default=DEFAULT_CLASSIFY_MODEL,
-    show_default=True,
-    help="Model used to judge which errors are knowledge-worthy "
-    "(used when ANTHROPIC_API_KEY is set).",
+    default=None,
+    help="Model used to judge which errors are knowledge-worthy. Precedence: "
+    f"this flag > .fixdoc/config.yaml classification.model > {DEFAULT_CLASSIFY_MODEL}.",
 )
 def ingest(paths, store_dir, namespace, limit, dry_run, classify_model):
     """Seed the knowledge store from logs, postmortems, and incident docs."""
+    # The classification block configures key, endpoint, and model TOGETHER so
+    # they always match. The config never holds the key itself (it is committed
+    # to git) — it names the env var that does, which is exactly how a GitHub
+    # Actions secret arrives: env: {TEAM_LLM_KEY: ${{ secrets.TEAM_LLM_KEY }}}.
+    config_path = Path(store_dir) / ".fixdoc" / "config.yaml"
+    config = yaml.safe_load(config_path.read_text()) if config_path.exists() else {}
+    classification = (config or {}).get("classification") or {}
+    model = classify_model or classification.get("model") or DEFAULT_CLASSIFY_MODEL
+    key_env = classification.get("api_key_env", "ANTHROPIC_API_KEY")
+    api_key = os.environ.get(key_env)
+    base_url = classification.get("base_url")
+
     worthiness_fn = None
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    if api_key:
 
         def worthiness_fn(items):
-            return model_worthiness(items, model=classify_model)
+            return model_worthiness(items, model=model, api_key=api_key, base_url=base_url)
 
     report = ingest_paths(
         paths,
@@ -56,7 +69,7 @@ def ingest(paths, store_dir, namespace, limit, dry_run, classify_model):
         worthiness_fn=worthiness_fn,
     )
     if report.classification == "model":
-        click.echo(f"error classification: model ({classify_model})")
+        click.echo(f"error classification: model ({model})")
     elif report.classification_error:
         click.echo(
             f"model classification failed ({report.classification_error}) "

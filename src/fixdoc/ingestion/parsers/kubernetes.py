@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from .base import ParsedError, ErrorParser, CloudProvider, ErrorSeverity
+from .base import ErrorParser, ErrorSeverity, ParsedError
 
 
 class KubernetesErrorType(Enum):

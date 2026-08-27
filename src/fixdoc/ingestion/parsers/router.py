@@ -9,8 +9,8 @@ from enum import Enum
 from typing import Optional
 
 from .base import ParsedError
-from .terraform import TerraformParser, TerraformError
-from .kubernetes import KubernetesParser, KubernetesError
+from .kubernetes import KubernetesParser
+from .terraform import TerraformParser
 
 
 class ErrorSource(Enum):
@@ -33,7 +33,7 @@ def detect_error_source(text: str) -> ErrorSource:
     Detect the source of an error from the text.
 
     This uses heuristics to determine whether the error comes from
-    Terraform, Kubernetes (kubectl/Helm), or another source, we may have to change this at some point
+    Terraform, Kubernetes (kubectl/Helm), or another source; may change later
 
     Args:
         text: The error output text to analyze

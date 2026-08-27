@@ -45,12 +45,14 @@ def _parse_keep_response(text, n):
     return keep
 
 
-def model_worthiness(items, model=DEFAULT_CLASSIFY_MODEL):
+def model_worthiness(items, model=DEFAULT_CLASSIFY_MODEL, api_key=None, base_url=None):
     """Classify items (dicts with code/address/excerpt) -> list[bool] (keep?).
 
-    Uses the ambient Anthropic credentials (ANTHROPIC_API_KEY or an ant auth
-    profile). Raises on any failure; the caller falls back to rules — an API
-    hiccup must never fail an ingestion run.
+    api_key/base_url come from .fixdoc/config.yaml's classification block, so
+    key, endpoint, and model are configured together and always match. With
+    both unset, the SDK resolves ambient credentials (ANTHROPIC_API_KEY or an
+    ant auth profile). Raises on any failure; the caller falls back to rules —
+    an API hiccup must never fail an ingestion run.
     """
     try:
         import anthropic
@@ -58,7 +60,12 @@ def model_worthiness(items, model=DEFAULT_CLASSIFY_MODEL):
         raise RuntimeError(
             'model-based classification needs the anthropic package: pip install "fixdoc[ai]"'
         )
-    client = anthropic.Anthropic()
+    client_kwargs = {}
+    if api_key:
+        client_kwargs["api_key"] = api_key
+    if base_url:
+        client_kwargs["base_url"] = base_url
+    client = anthropic.Anthropic(**client_kwargs)
     numbered = "\n".join(
         f"{i}. code={item['code']} resource={item['address'] or '-'} :: {item['excerpt'][:200]}"
         for i, item in enumerate(items)
