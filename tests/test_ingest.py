@@ -1,5 +1,6 @@
 """Tests for fixdoc ingest — day-0 pipeline: docs and logs in, store + queue out."""
 
+import importlib
 import shutil
 from pathlib import Path
 
@@ -113,3 +114,59 @@ class TestCapAndModes:
         assert result.exit_code == 0
         assert entries_in(tmp_path) == []
         assert not (tmp_path / ".fixdoc").exists()
+
+
+class TestWalkHardening:
+    def test_hidden_directories_skipped(self, tmp_path):
+        src = tmp_path / "input"
+        (src / ".git").mkdir(parents=True)
+        shutil.copy(FIXTURES / "postmortem_incident.md", src / ".git" / "leak.md")
+        result = CliRunner().invoke(create_cli(), ["ingest", str(src), "--store", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+        assert entries_in(tmp_path) == []
+
+    def test_store_knowledge_never_reingested(self, tmp_path):
+        run_ingest(tmp_path, "postmortem_incident.md")
+        (path,) = entries_in(tmp_path)
+        result = CliRunner().invoke(
+            create_cli(), ["ingest", str(tmp_path), "--store", str(tmp_path)]
+        )
+        assert result.exit_code == 0, result.output
+        assert entries_in(tmp_path) == [path]  # the store's own entries are not candidates
+
+
+class TestModelClassification:
+    def test_model_verdicts_override_rules(self, tmp_path, monkeypatch):
+        ingest_mod = importlib.import_module("fixdoc.commands.ingest")
+
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setattr(
+            ingest_mod, "model_worthiness", lambda items, model=None: [True] * len(items)
+        )
+        # rules call this noise; the model says keep -> it must reach the queue
+        result = run_ingest(tmp_path, "noise.log")
+        assert result.exit_code == 0, result.output
+        queue = (tmp_path / ".fixdoc" / "ingest-queue.md").read_text()
+        assert "MissingRequiredArgument" in queue or "required" in queue.lower()
+        assert "model" in result.output.lower()
+
+    def test_api_failure_falls_back_to_rules(self, tmp_path, monkeypatch):
+        ingest_mod = importlib.import_module("fixdoc.commands.ingest")
+
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+        def boom(items, model=None):
+            raise RuntimeError("api down")
+
+        monkeypatch.setattr(ingest_mod, "model_worthiness", boom)
+        result = run_ingest(tmp_path, "terraform_apply.log")
+        assert result.exit_code == 0, result.output
+        assert "falling back" in result.output.lower()
+        queue = (tmp_path / ".fixdoc" / "ingest-queue.md").read_text()
+        assert "AccessDenied" in queue  # rules still work
+
+    def test_no_key_uses_rules_silently(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        result = run_ingest(tmp_path, "terraform_apply.log")
+        assert result.exit_code == 0, result.output
+        assert "rule-based" in result.output.lower()

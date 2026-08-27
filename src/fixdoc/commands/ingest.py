@@ -6,8 +6,11 @@ written. Selection is capped and ranked by substance, because a quarantine
 queue nobody can review is worth nothing.
 """
 
+import os
+
 import click
 
+from fixdoc.ingestion.model_classify import DEFAULT_CLASSIFY_MODEL, model_worthiness
 from fixdoc.ingestion.pipeline import ingest_paths
 
 
@@ -29,9 +32,38 @@ from fixdoc.ingestion.pipeline import ingest_paths
     "Re-run after reviewing a batch to drain the next wave.",
 )
 @click.option("--dry-run", is_flag=True, help="Report what would happen; write nothing.")
-def ingest(paths, store_dir, namespace, limit, dry_run):
+@click.option(
+    "--classify-model",
+    default=DEFAULT_CLASSIFY_MODEL,
+    show_default=True,
+    help="Model used to judge which errors are knowledge-worthy "
+    "(used when ANTHROPIC_API_KEY is set).",
+)
+def ingest(paths, store_dir, namespace, limit, dry_run, classify_model):
     """Seed the knowledge store from logs, postmortems, and incident docs."""
-    report = ingest_paths(paths, store_dir, namespace=namespace, limit=limit, dry_run=dry_run)
+    worthiness_fn = None
+    if os.environ.get("ANTHROPIC_API_KEY"):
+
+        def worthiness_fn(items):
+            return model_worthiness(items, model=classify_model)
+
+    report = ingest_paths(
+        paths,
+        store_dir,
+        namespace=namespace,
+        limit=limit,
+        dry_run=dry_run,
+        worthiness_fn=worthiness_fn,
+    )
+    if report.classification == "model":
+        click.echo(f"error classification: model ({classify_model})")
+    elif report.classification_error:
+        click.echo(
+            f"model classification failed ({report.classification_error}) "
+            "— falling back to rules"
+        )
+    elif report.queue_items or report.noise_errors:
+        click.echo("error classification: rule-based " "(set ANTHROPIC_API_KEY for model-based)")
     verb = "would write" if dry_run else "wrote"
     click.echo(
         f"{verb} {report.entries_written} quarantined entries "

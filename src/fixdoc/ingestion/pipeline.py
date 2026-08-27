@@ -63,6 +63,8 @@ class IngestReport:
     queue_occurrences: int = 0
     noise_errors: int = 0
     redactions: dict = field(default_factory=dict)
+    classification: str = "rules"  # "model" when worthiness_fn decided
+    classification_error: str = ""  # set when the model path failed and rules took over
 
 
 def _sections_from_markdown(text):
@@ -167,40 +169,91 @@ class _Shim:
         self.error_id = ""
 
 
-def _log_candidates(path, queue, report):
-    """Errors from a log -> queue items keyed by (code, address), counted."""
+def _parse_log(path, report):
+    """Errors from one log file -> item dicts (classification happens later,
+    over the whole batch, so the model path can decide in one call)."""
     text, counts = redact(path.read_text(errors="replace"))
     _merge_redactions(report, counts)
+    items = []
     for parsed in detect_and_parse(text):
-        shim = _Shim(parsed)
-        if classify_entry(shim) != "memory_worthy":
-            report.noise_errors += 1  # typos and missing arguments are not knowledge
+        excerpt = " ".join((parsed.error_message or "").split())[:EXCERPT_CHARS]
+        items.append(
+            {
+                "code": parsed.error_code or "unknown",
+                "address": parsed.resource_address or "",
+                "excerpt": excerpt,
+                "shim": _Shim(parsed),
+            }
+        )
+    return items
+
+
+def _expand(path, knowledge_dir):
+    """Files under a directory argument, minus hidden trees (.git, .cache) and
+    the store's own knowledge/ (ingesting the store into itself would clone
+    every entry under a new id). Explicitly listed files are never filtered:
+    naming a file is authorization enough."""
+    if not path.is_dir():
+        yield path
+        return
+    for f in sorted(path.rglob("*")):
+        if not f.is_file():
             continue
-        key = (parsed.error_code or "unknown", parsed.resource_address or "")
-        if key in queue:
-            queue[key]["count"] += 1
-        else:
-            excerpt = " ".join((parsed.error_message or "").split())[:EXCERPT_CHARS]
-            queue[key] = {"code": key[0], "address": key[1], "count": 1, "excerpt": excerpt}
+        if any(part.startswith(".") for part in f.relative_to(path).parts):
+            continue
+        if knowledge_dir in f.resolve().parents:
+            continue
+        yield f
 
 
-def ingest_paths(paths, store_dir, namespace="shared", limit=200, dry_run=False):
-    """Run the pipeline. Returns an IngestReport; writes only when not dry_run."""
+def ingest_paths(
+    paths, store_dir, namespace="shared", limit=200, dry_run=False, worthiness_fn=None
+):
+    """Run the pipeline. Returns an IngestReport; writes only when not dry_run.
+
+    worthiness_fn, when given, classifies the whole error batch (the model
+    path); on any failure it falls back to the rule-based classifier — an API
+    hiccup must never fail an ingestion run.
+    """
     store_dir = Path(store_dir)
     report = IngestReport()
+    knowledge_dir = (store_dir / "knowledge").resolve()
     files = []
     for raw in paths:
-        p = Path(raw)
-        files.extend(sorted(f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p])
+        files.extend(_expand(Path(raw), knowledge_dir))
 
-    candidates, queue = [], {}
+    candidates, queue, log_items = [], {}, []
     for f in files:
         if f.suffix.lower() in (".md", ".markdown"):
             result = _doc_candidate(f, report)
             if result is not None:
                 candidates.append(result)
         else:
-            _log_candidates(f, queue, report)
+            log_items.extend(_parse_log(f, report))
+
+    keeps = None
+    if log_items and worthiness_fn is not None:
+        try:
+            keeps = worthiness_fn(log_items)
+            report.classification = "model"
+        except Exception as exc:
+            report.classification_error = str(exc)
+    if keeps is None:
+        keeps = [classify_entry(item["shim"]) == "memory_worthy" for item in log_items]
+    for item, keep in zip(log_items, keeps):
+        if not keep:
+            report.noise_errors += 1  # not knowledge: the message explains itself
+            continue
+        key = (item["code"], item["address"])
+        if key in queue:
+            queue[key]["count"] += 1
+        else:
+            queue[key] = {
+                "code": item["code"],
+                "address": item["address"],
+                "count": 1,
+                "excerpt": item["excerpt"],
+            }
 
     report.candidates = len(candidates)
     candidates.sort(key=lambda item: item[0], reverse=True)  # substance first
