@@ -1,8 +1,0 @@
-╷
-│ Error: Missing required argument
-│
-│   on main.tf line 10, in resource "aws_instance" "web":
-│   10: resource "aws_instance" "web" {
-│
-│ The argument "ami" is required, but no definition was found.
-╵

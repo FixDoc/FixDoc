@@ -36,9 +36,6 @@ dependencies = [
 fixdoc = "fixdoc.fix:main"
 
 [project.optional-dependencies]
-ai = [
-    "anthropic>=0.40.0",
-]
 embed = [
     "fastembed>=0.3.0",
 ]

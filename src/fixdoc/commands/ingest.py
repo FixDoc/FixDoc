@@ -1,18 +1,13 @@
-"""fixdoc ingest — day-0 seeding: feed logs and postmortems, get a store.
+"""fixdoc ingest — day-0 seeding from resolution-bearing documents.
 
-Documents with resolutions become quarantined entries; logs become a symptom
-queue (never fabricated fixes). Secrets are redacted before anything is
-written. Selection is capped and ranked by substance, because a quarantine
-queue nobody can review is worth nothing.
+Runbooks, postmortems, and incident writeups become quarantined entries;
+secrets are redacted before anything is written; selection is capped and
+ranked by substance. Logs are deliberately not ingested: errors carry no
+remediation, and entries are only born from sources that contain one.
 """
 
-import os
-from pathlib import Path
-
 import click
-import yaml
 
-from fixdoc.ingestion.model_classify import DEFAULT_CLASSIFY_MODEL, model_worthiness
 from fixdoc.ingestion.pipeline import ingest_paths
 
 
@@ -34,49 +29,9 @@ from fixdoc.ingestion.pipeline import ingest_paths
     "Re-run after reviewing a batch to drain the next wave.",
 )
 @click.option("--dry-run", is_flag=True, help="Report what would happen; write nothing.")
-@click.option(
-    "--classify-model",
-    default=None,
-    help="Model used to judge which errors are knowledge-worthy. Precedence: "
-    f"this flag > .fixdoc/config.yaml classification.model > {DEFAULT_CLASSIFY_MODEL}.",
-)
-def ingest(paths, store_dir, namespace, limit, dry_run, classify_model):
-    """Seed the knowledge store from logs, postmortems, and incident docs."""
-    # The classification block configures key, endpoint, and model TOGETHER so
-    # they always match. The config never holds the key itself (it is committed
-    # to git) — it names the env var that does, which is exactly how a GitHub
-    # Actions secret arrives: env: {TEAM_LLM_KEY: ${{ secrets.TEAM_LLM_KEY }}}.
-    config_path = Path(store_dir) / ".fixdoc" / "config.yaml"
-    config = yaml.safe_load(config_path.read_text()) if config_path.exists() else {}
-    classification = (config or {}).get("classification") or {}
-    model = classify_model or classification.get("model") or DEFAULT_CLASSIFY_MODEL
-    key_env = classification.get("api_key_env", "ANTHROPIC_API_KEY")
-    api_key = os.environ.get(key_env)
-    base_url = classification.get("base_url")
-
-    worthiness_fn = None
-    if api_key:
-
-        def worthiness_fn(items):
-            return model_worthiness(items, model=model, api_key=api_key, base_url=base_url)
-
-    report = ingest_paths(
-        paths,
-        store_dir,
-        namespace=namespace,
-        limit=limit,
-        dry_run=dry_run,
-        worthiness_fn=worthiness_fn,
-    )
-    if report.classification == "model":
-        click.echo(f"error classification: model ({model})")
-    elif report.classification_error:
-        click.echo(
-            f"model classification failed ({report.classification_error}) "
-            "— falling back to rules"
-        )
-    elif report.queue_items or report.noise_errors:
-        click.echo("error classification: rule-based " "(set ANTHROPIC_API_KEY for model-based)")
+def ingest(paths, store_dir, namespace, limit, dry_run):
+    """Seed the knowledge store from runbooks, postmortems, and incident docs."""
+    report = ingest_paths(paths, store_dir, namespace=namespace, limit=limit, dry_run=dry_run)
     verb = "would write" if dry_run else "wrote"
     click.echo(
         f"{verb} {report.entries_written} quarantined entries "
@@ -93,19 +48,10 @@ def ingest(paths, store_dir, namespace, limit, dry_run, classify_model):
             f"  {report.skipped_no_resolution} documents had no resolution "
             "content and were skipped"
         )
-    if report.queue_items:
+    if report.non_documents:
         click.echo(
-            f"symptom queue: {report.queue_items} distinct errors "
-            f"({report.queue_occurrences} occurrences) -> .fixdoc/ingest-queue.md"
-        )
-        click.echo(
-            "  logs contain symptoms, not fixes: complete the queue by asking "
-            "your agent to interview you through it."
-        )
-    if report.noise_errors:
-        click.echo(
-            f"  {report.noise_errors} self-explanatory errors (typos, missing "
-            "arguments) discarded as noise"
+            f"  {report.non_documents} non-document files ignored — logs carry "
+            "no remediation; knowledge comes from docs, threads, and people"
         )
     if report.redactions:
         detail = ", ".join(f"{k} x{v}" for k, v in sorted(report.redactions.items()))
@@ -118,3 +64,8 @@ def ingest(paths, store_dir, namespace, limit, dry_run, classify_model):
             "\nNext: review each entry (fill placeholders, set status: "
             "validated) — quarantined entries are invisible to agents."
         )
+    click.echo(
+        "\nBest first seed: ask your agent to interview you — ten environment "
+        "facts every new engineer learns the hard way, plus your five worst "
+        "incidents — and record each one."
+    )
