@@ -148,7 +148,8 @@ TOOLS = [
             "Report that a fix retrieved from search_fixes resolved your incident. Always "
             "call this when a retrieved fix worked — it is one call, and it is how the "
             "knowledge base learns which fixes actually help: confirmations raise the "
-            "entry's trust, so future searches rank it higher."
+            "entry's trust, so future searches rank it higher. Confirming does NOT "
+            "promote a quarantined entry to validated — only a human review does that."
         ),
         "inputSchema": {
             "type": "object",
