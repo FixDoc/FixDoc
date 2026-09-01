@@ -51,6 +51,23 @@ fixdoc ingest ./runbooks ./postmortems
 - Logs are deliberately not ingested: errors carry no remediation. Knowledge
   comes from documents, threads, and people.
 
+**3. Drain your Slack incident channels:**
+
+```bash
+export SLACK_TOKEN=xoxb-...   # bot token from docs/slack-app-manifest.yaml
+export ANTHROPIC_API_KEY=...  # extraction is model-based
+fixdoc import-slack --channel C0INCIDENTS --since 90
+```
+
+The model reads each thread and extracts only what it states: resolved
+threads with a stated remediation become quarantined entries; social and
+unresolved threads are skipped. Every extraction is **confidence-scored
+against your own rubric** (set `import.confidence_rubric` and
+`import.confidence_threshold` in `.fixdoc/config.yaml`); below the gate,
+nothing is written — permalinks are reported instead. Threads are redacted
+before the model sees them, entries carry the thread permalink in Notes for
+one-click review, and re-runs never duplicate.
+
 Then review each new entry — fill the placeholders, change
 `status: quarantined` to `status: validated` (normally via pull request) —
 and it becomes retrievable.
