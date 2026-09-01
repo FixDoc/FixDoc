@@ -8,7 +8,7 @@ as they earn their place.
 
 import click
 
-from .commands import ingest, init_command, serve
+from .commands import import_slack, ingest, init_command, serve
 
 
 def create_cli() -> click.Group:
@@ -20,4 +20,5 @@ def create_cli() -> click.Group:
     cli.add_command(init_command)
     cli.add_command(serve)
     cli.add_command(ingest)
+    cli.add_command(import_slack)
     return cli

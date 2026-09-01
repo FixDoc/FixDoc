@@ -1,0 +1,17 @@
+# Slack app manifest for the FixDoc importer.
+# Create the app at https://api.slack.com/apps -> "Create New App" ->
+# "From an app manifest" -> paste this file. Install to your workspace,
+# copy the Bot User OAuth Token (xoxb-...) into SLACK_TOKEN, and invite
+# @fixdoc-importer to the channels you want to import from.
+display_information:
+  name: fixdoc-importer
+  description: Read-only importer for the FixDoc incident knowledge store.
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - channels:read
+      - users:read
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false

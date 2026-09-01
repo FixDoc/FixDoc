@@ -9,6 +9,7 @@ CLAUDE.md
 *.md
 !prd.md
 !docs/**/*.md
+!tests/**/*.md
 .fixdoc-pending
 .fixdoc-test/
 build/
