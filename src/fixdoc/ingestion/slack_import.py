@@ -19,6 +19,10 @@ from .classify import classify_memory_type
 from .redact import redact
 from .slack_extract import DEFAULT_THRESHOLD, extract_thread
 
+# The never-invent guarantee: when the model reports a field as not stated in
+# the thread (null), the entry shows this visible marker instead of fabricated
+# content — the reviewer sees exactly what the source did not say. (An empty
+# section would fail validation and hide the gap.)
 PLACEHOLDER = "(not stated in the thread — add during review)"
 
 

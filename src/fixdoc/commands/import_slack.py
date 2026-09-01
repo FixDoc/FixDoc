@@ -74,7 +74,15 @@ def import_slack(channels, store_dir, namespace, since_days, limit, threshold, t
         else float(import_config.get("confidence_threshold", DEFAULT_THRESHOLD))
     )
     rubric = import_config.get("confidence_rubric")
-    if not api_key:
+    provider = import_config.get("provider", "anthropic")
+    if provider == "openai-compatible" and not base_url:
+        raise click.ClickException(
+            "import.provider: openai-compatible requires import.base_url "
+            "(e.g. http://localhost:11434/v1 for a local Ollama)."
+        )
+    if provider == "openai-compatible":
+        api_key = api_key  # optional for local endpoints
+    elif not api_key:
         raise click.ClickException(
             f"the Slack importer is model-extracted and needs a key: set {key_env} "
             "(or configure import.api_key_env in .fixdoc/config.yaml)."
@@ -82,7 +90,12 @@ def import_slack(channels, store_dir, namespace, since_days, limit, threshold, t
 
     def extractor_fn(thread_text, rubric_text):
         return extract_thread(
-            thread_text, rubric=rubric_text, model=model, api_key=api_key, base_url=base_url
+            thread_text,
+            rubric=rubric_text,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            provider=provider,
         )
 
     report = import_slack_threads(

@@ -34,3 +34,59 @@ class TestParseExtraction:
 
     def test_default_model_is_the_cheap_tier(self):
         assert DEFAULT_IMPORT_MODEL == "claude-haiku-4-5"
+
+
+class TestProviders:
+    def test_openai_compatible_payload_and_parse(self, monkeypatch):
+        import io
+        import json as jsonlib
+        import urllib.request as urllib_request
+
+        from fixdoc.ingestion import slack_extract
+
+        captured = {}
+
+        def fake_urlopen(request, timeout=None):
+            captured["url"] = request.full_url
+            captured["payload"] = jsonlib.loads(request.data)
+            body = jsonlib.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": '{"resolved": true, "confidence": 0.7,'
+                                ' "fix": "restart it"}'
+                            }
+                        }
+                    ]
+                }
+            )
+            return io.BytesIO(body.encode())
+
+        monkeypatch.setattr(urllib_request, "urlopen", fake_urlopen)
+        parsed = slack_extract.extract_thread(
+            "thread text",
+            model="llama3",
+            base_url="http://localhost:11434/v1",
+            provider="openai-compatible",
+        )
+        assert parsed["resolved"] is True and parsed["fix"] == "restart it"
+        assert captured["url"] == "http://localhost:11434/v1/chat/completions"
+        assert captured["payload"]["model"] == "llama3"
+        assert captured["payload"]["messages"][1]["content"] == "thread text"
+
+    def test_openai_compatible_requires_base_url(self):
+        import pytest as _pytest
+
+        from fixdoc.ingestion.slack_extract import extract_thread
+
+        with _pytest.raises(RuntimeError, match="base_url"):
+            extract_thread("t", provider="openai-compatible")
+
+    def test_unknown_provider_rejected(self):
+        import pytest as _pytest
+
+        from fixdoc.ingestion.slack_extract import extract_thread
+
+        with _pytest.raises(RuntimeError, match="unknown"):
+            extract_thread("t", provider="mystery")
