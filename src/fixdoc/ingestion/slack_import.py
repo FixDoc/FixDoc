@@ -14,10 +14,10 @@ from pathlib import Path
 
 from fixdoc.core.models import Entry
 
+from . import slack_api
 from .classify import classify_memory_type
 from .redact import redact
 from .slack_extract import DEFAULT_THRESHOLD, extract_thread
-from . import slack_api
 
 PLACEHOLDER = "(not stated in the thread — add during review)"
 

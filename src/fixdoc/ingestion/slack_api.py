@@ -7,11 +7,22 @@ emojis"); extraction is now the model's job (slack_extract.py).
 """
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Callable, Dict, List, Optional
+from typing import Callable, List, Optional
+
+_SLACK_API = "https://slack.com/api"
+_MAX_RETRIES = 3
+_URL_LINK_RE = re.compile(r"<(https?://[^|>]+)\|([^>]+)>")
+_URL_BARE_RE = re.compile(r"<(https?://[^>]+)>")
+_USER_MENTION_RE = re.compile(r"<@(U[A-Z0-9]+)>")
+_CHANNEL_MENTION_RE = re.compile(r"<#C[A-Z0-9]+\|([^>]+)>")
+_BOLD_RE = re.compile(r"\*([^*]+)\*")
+_ITALIC_RE = re.compile(r"(?<!\w)_([^_]+)_(?!\w)")
+_STRIKE_RE = re.compile(r"~([^~]+)~")
 
 
 def _slack_request(
