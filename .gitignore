@@ -13,3 +13,4 @@ CLAUDE.md
 .fixdoc-pending
 .fixdoc-test/
 build/
+.venv/
