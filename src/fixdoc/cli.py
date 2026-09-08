@@ -8,7 +8,16 @@ as they earn their place.
 
 import click
 
-from .commands import doctor, import_slack, ingest, init_command, promote, serve, status
+from .commands import (
+    doctor,
+    eval_group,
+    import_slack,
+    ingest,
+    init_command,
+    promote,
+    serve,
+    status,
+)
 
 
 def create_cli() -> click.Group:
@@ -24,4 +33,5 @@ def create_cli() -> click.Group:
     cli.add_command(status)
     cli.add_command(promote)
     cli.add_command(doctor)
+    cli.add_command(eval_group)
     return cli
