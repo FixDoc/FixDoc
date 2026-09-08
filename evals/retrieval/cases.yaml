@@ -1,0 +1,33 @@
+# Golden retrieval cases — seed set (10). Labels are human-approved ground
+# truth: relevant = the answer; acceptable = fine to surface, not a hit;
+# must_not_return = the trap (similar words, wrong universe). Queries are
+# worded the way incidents actually present, not the way entries are titled.
+- query: "pods won't schedule after we grew the cluster"
+  resource_type: kubernetes/aks
+  relevant: [fx_5ab8e701]
+  acceptable: [fx_3e9c0e51]
+  must_not_return: [fx_dbc07a01]
+- query: "pods pending, events say insufficient memory, autoscaler not helping"
+  resource_type: kubernetes/aks
+  relevant: [fx_3e9c0e51]
+  must_not_return: [fx_dbc07a01]
+- query: "0/6 nodes available, taints and selector complaints when deploying"
+  resource_type: kubernetes/aks
+  relevant: [fx_7a1e7301]
+- query: "terraform stuck on acquiring the state lock, the CI job that held it is gone"
+  relevant: [fx_51a7e10c]
+- query: "plan suddenly failing with expired token credential errors"
+  relevant: [fx_a0791a2e]
+- query: "apply blows up saying the s3 bucket already exists"
+  relevant: [fx_b3c4e7f1]
+- query: "everything in the cluster failing name resolution since this afternoon's change"
+  relevant: [fx_c07ed05e]
+  must_not_return: [fx_d151b0bb]
+- query: "getting 502s from our ingress ever since we swapped certificates"
+  relevant: [fx_d151b0bb]
+  acceptable: [pb_a2071c3d]
+- query: "db volume filling up fast and the nightly backup died out of space"
+  relevant: [fx_e0d5fa11]
+- query: "application can't write to the database since the failover, timeouts everywhere"
+  relevant: [fx_f41107e2]
+  acceptable: [pb_be5c1055]
