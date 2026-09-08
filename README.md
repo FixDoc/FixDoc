@@ -112,6 +112,23 @@ in, get a classified, secret-redacted, quarantined store out), Slack/Jira/
 ServiceNow/Notion importers, the ops surface (`status`, `promote`, `doctor`),
 and the eval harness.
 
+## Is it working? Is it worth it?
+
+```bash
+fixdoc status    # store health, agent activity, proof, and the gap report
+fixdoc promote fx_7c2a91e4   # quarantined -> validated, the human act
+fixdoc doctor    # diagnoses the problems that bite silently
+```
+
+`status` answers the two customer questions from ground truth. *Is the agent
+actually calling FixDoc?* — every search, hit, miss, record, and confirm is
+counted from the local events log (in-harness, `/mcp` shows the server and
+each call appears in the transcript as a `fixdoc - search_fixes(...)` block).
+*Is it worth it?* — the proof line (incidents resolved by validated fixes),
+tokens of validated context served to agents, and the gap report: searches
+that found nothing, which is your documentation backlog ranked by real
+demand.
+
 ## Developing
 
 ```bash
