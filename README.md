@@ -68,6 +68,18 @@ nothing is written — permalinks are reported instead. Threads are redacted
 before the model sees them, entries carry the thread permalink in Notes for
 one-click review, and re-runs never duplicate.
 
+**4. Or let your agent be the bridge (no Slack app needed).** If your team
+already runs a Slack MCP server, your agent holds both it and FixDoc's tools —
+so seeding is one instruction:
+
+> "Read the resolved threads in #incidents from the last month and
+> `record_fix` each one that states a real remediation."
+
+The agent reads via your Slack MCP server, extracts in the harness you
+already trust, and writes through `record_fix` — so everything still lands
+in quarantine under the same rules. Works for any source your agent can
+read: wikis, ticket systems, terminal scrollback.
+
 Then review each new entry — fill the placeholders, change
 `status: quarantined` to `status: validated` (normally via pull request) —
 and it becomes retrievable.
