@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fixdoc"
-version = "0.1.0"
-description = "Capture and search infrastructure fixes for cloud/SRE engineers"
+version = "0.2.0"
+description = "The incident knowledge store your AI agents query over MCP"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
