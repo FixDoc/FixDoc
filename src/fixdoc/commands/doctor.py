@@ -13,6 +13,13 @@ import yaml
 
 from fixdoc.core.models import TYPE_PREFIXES, Entry
 
+# Two nets with a deliberate gap between them. _ENTRY_LIKE_RE is the loose
+# net: "smells like an entry" (fx_/pb_/in_ + anything). _VALID_NAME_RE is the
+# strict spec the index enforces: prefix + exactly 8 hex chars. A file caught
+# by the loose net but not the strict one is the silent trap this command
+# exists for — a human meant it to be an entry, the index ignores it, and
+# nothing anywhere says so. READMEs and notes match neither, so they pass
+# through untouched.
 _ENTRY_LIKE_RE = re.compile(r"^(?:%s)_.+\.md$" % "|".join(TYPE_PREFIXES.values()))
 _VALID_NAME_RE = re.compile(r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values()))
 

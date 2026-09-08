@@ -183,3 +183,48 @@ class TestDoctor:
         result = run(tmp_path, "doctor")
         assert result.exit_code != 0
         assert "knowledge" in result.output
+
+
+class TestPromoteAll:
+    def test_all_promotes_every_quarantined(self, tmp_path):
+        seed_store(tmp_path)
+        result = CliRunner().invoke(
+            create_cli(), ["promote", "--all", "--yes", "--store", str(tmp_path)]
+        )
+        assert result.exit_code == 0, result.output
+        shared = tmp_path / "knowledge" / "shared"
+        for entry_id in ("fx_00000003", "fx_00000004"):
+            entry = Entry.from_markdown((shared / f"{entry_id}.md").read_text())
+            assert entry.status == "validated"
+        # untouched: already-validated and deprecated
+        assert Entry.from_markdown((shared / "fx_00000005.md").read_text()).status == "deprecated"
+
+    def test_all_asks_for_confirmation(self, tmp_path):
+        seed_store(tmp_path)
+        result = CliRunner().invoke(
+            create_cli(), ["promote", "--all", "--store", str(tmp_path)], input="n\n"
+        )
+        assert result.exit_code != 0 or "aborted" in result.output.lower()
+        shared = tmp_path / "knowledge" / "shared"
+        assert Entry.from_markdown((shared / "fx_00000003.md").read_text()).status == "quarantined"
+
+    def test_all_with_ids_is_an_error(self, tmp_path):
+        seed_store(tmp_path)
+        result = CliRunner().invoke(
+            create_cli(), ["promote", "--all", "fx_00000003", "--store", str(tmp_path)]
+        )
+        assert result.exit_code != 0
+
+    def test_no_args_is_an_error(self, tmp_path):
+        seed_store(tmp_path)
+        result = CliRunner().invoke(create_cli(), ["promote", "--store", str(tmp_path)])
+        assert result.exit_code != 0
+
+    def test_all_with_empty_queue_is_friendly(self, tmp_path):
+        seed_store(tmp_path)
+        CliRunner().invoke(create_cli(), ["promote", "--all", "--yes", "--store", str(tmp_path)])
+        result = CliRunner().invoke(
+            create_cli(), ["promote", "--all", "--yes", "--store", str(tmp_path)]
+        )
+        assert result.exit_code == 0
+        assert "nothing" in result.output.lower()

@@ -24,16 +24,51 @@ def _find(store_dir, wanted):
 
 
 @click.command("promote")
-@click.argument("entry_ids", nargs=-1, required=True)
+@click.argument("entry_ids", nargs=-1)
 @click.option(
     "--store",
     "store_dir",
     default=".",
     help="Repo root containing knowledge/ (default: current directory).",
 )
-def promote(entry_ids, store_dir):
-    """Promote quarantined entries to validated (id or unique prefix)."""
+@click.option(
+    "--all",
+    "promote_all",
+    is_flag=True,
+    help="Promote every quarantined entry. Bulk promotion skips "
+    "per-entry review, so it asks for confirmation.",
+)
+@click.option("--yes", is_flag=True, help="Skip the --all confirmation prompt.")
+def promote(entry_ids, store_dir, promote_all, yes):
+    """Promote quarantined entries to validated (ids, unique prefixes, or --all)."""
     store_dir = Path(store_dir)
+    if promote_all and entry_ids:
+        raise click.ClickException("pass ids OR --all, not both")
+    if not promote_all and not entry_ids:
+        raise click.ClickException("pass entry ids, or --all for the whole queue")
+
+    if promote_all:
+        knowledge = store_dir / "knowledge"
+        queue = []
+        for path in sorted(knowledge.rglob("*.md")) if knowledge.is_dir() else []:
+            try:
+                entry = Entry.from_markdown(path.read_text())
+            except Exception:
+                continue
+            if entry.status == "quarantined":
+                queue.append(path.stem)
+        if not queue:
+            click.echo("nothing in quarantine — the queue is clear.")
+            return
+        # Review is the quality gate; bulk promotion is the human explicitly
+        # vouching for the whole batch, so show what the batch IS first.
+        if not yes:
+            click.confirm(
+                f"promote all {len(queue)} quarantined entries without " "per-entry review?",
+                abort=True,
+            )
+        entry_ids = queue
+
     promoted = 0
     for wanted in entry_ids:
         matches = _find(store_dir, wanted)
