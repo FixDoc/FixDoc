@@ -7,7 +7,7 @@ humans review knowledge in git.
 
 import click
 
-from .commands import index_command, ingest, init_command, serve
+from .commands import doctor, import_slack, ingest, init_command, index_command, promote, serve, status
 
 
 def create_cli() -> click.Group:
@@ -20,4 +20,8 @@ def create_cli() -> click.Group:
     cli.add_command(serve)
     cli.add_command(ingest)
     cli.add_command(index_command)
+    cli.add_command(import_slack)
+    cli.add_command(status)
+    cli.add_command(promote)
+    cli.add_command(doctor)
     return cli

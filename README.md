@@ -51,6 +51,35 @@ fixdoc ingest ./runbooks ./postmortems
 - Logs are deliberately not ingested: errors carry no remediation. Knowledge
   comes from documents, threads, and people.
 
+**3. Drain your Slack incident channels:**
+
+```bash
+export SLACK_TOKEN=xoxb-...   # bot token from docs/slack-app-manifest.yaml
+export ANTHROPIC_API_KEY=...  # extraction is model-based
+fixdoc import-slack --channel C0INCIDENTS --since 90
+```
+
+The model reads each thread and extracts only what it states: resolved
+threads with a stated remediation become quarantined entries; social and
+unresolved threads are skipped. Every extraction is **confidence-scored
+against your own rubric** (set `import.confidence_rubric` and
+`import.confidence_threshold` in `.fixdoc/config.yaml`); below the gate,
+nothing is written — permalinks are reported instead. Threads are redacted
+before the model sees them, entries carry the thread permalink in Notes for
+one-click review, and re-runs never duplicate.
+
+**4. Or let your agent be the bridge (no Slack app needed).** If your team
+already runs a Slack MCP server, your agent holds both it and FixDoc's tools —
+so seeding is one instruction:
+
+> "Read the resolved threads in #incidents from the last month and
+> `record_fix` each one that states a real remediation."
+
+The agent reads via your Slack MCP server, extracts in the harness you
+already trust, and writes through `record_fix` — so everything still lands
+in quarantine under the same rules. Works for any source your agent can
+read: wikis, ticket systems, terminal scrollback.
+
 Then review each new entry — fill the placeholders, change
 `status: quarantined` to `status: validated` (normally via pull request) —
 and it becomes retrievable.
@@ -106,6 +135,23 @@ quarantine write path with dedup, the events log, local embeddings, and
 in, get a classified, secret-redacted, quarantined store out), Slack/Jira/
 ServiceNow/Notion importers, the ops surface (`status`, `promote`, `doctor`),
 and the eval harness.
+
+## Is it working? Is it worth it?
+
+```bash
+fixdoc status    # store health, agent activity, proof, and the gap report
+fixdoc promote fx_7c2a91e4   # quarantined -> validated, the human act
+fixdoc doctor    # diagnoses the problems that bite silently
+```
+
+`status` answers the two customer questions from ground truth. *Is the agent
+actually calling FixDoc?* — every search, hit, miss, record, and confirm is
+counted from the local events log (in-harness, `/mcp` shows the server and
+each call appears in the transcript as a `fixdoc - search_fixes(...)` block).
+*Is it worth it?* — the proof line (incidents resolved by validated fixes),
+tokens of validated context served to agents, and the gap report: searches
+that found nothing, which is your documentation backlog ranked by real
+demand.
 
 ## Developing
 

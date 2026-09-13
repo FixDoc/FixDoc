@@ -1,5 +1,4 @@
-# Platform planning
+# Platform sync notes
 
-## Discussion
-
-The team discussed next quarter's capacity forecast and training schedule.
+Discussed the Q3 roadmap and the on-call rotation swap. Alice presented the
+cost dashboard. Next sync in two weeks.

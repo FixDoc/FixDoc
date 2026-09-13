@@ -1,20 +1,17 @@
-# Example credential exposure incident
-
-All values in this fixture are synthetic examples for redaction tests.
+# Deploy failed after credential rotation
 
 ## Summary
 
-Debug output included AKIAIOSFODNN7EXAMPLE and password=hunter2.
+Deploy pipeline failed with 403 after rotating credentials. The job env still
+had AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE and password=hunter2 baked into
+the runner config, plus an old header Authorization: Bearer abc123def456ghi789
+and a database URL postgres://svc:s3cretpw@db.internal/app.
 
-## Root cause
+## Fix
 
-The test client logged Authorization: Bearer abc123def456ghi789,
-postgres://demo:s3cretpw@localhost/example and token=ghp_2938471password.
-
-## Resolution
-
-Remove credential logging and replace the exposed test credentials.
+Rotated the runner secrets and moved credentials to the vault. Purged the
+stale token=ghp_2938471password from CI variables.
 
 ## Verification
 
-The next test run contained no credentials in its debug output.
+Deploy succeeded; secret scanner reports clean.

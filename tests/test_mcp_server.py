@@ -243,3 +243,17 @@ class TestGetFix:
         server = build_server(tmp_path)
         text, is_error = call_tool(server, "get_fix", {"fix_id": "fx_deadbeef"})
         assert is_error
+
+
+class TestTokensServedLogging:
+    def test_retrieval_event_carries_tokens_served(self, tmp_path):
+        server = build_server(tmp_path, [make_fix("fx_00000001", "Pods Pending")])
+        call_tool(server, "search_fixes", {"query": "pods pending"})
+        event = read_events(server.index.index_dir)[-1]
+        assert event["payload"]["tokens_served"] > 0
+
+    def test_empty_result_logs_zero_tokens(self, tmp_path):
+        server = build_server(tmp_path)
+        call_tool(server, "search_fixes", {"query": "anything"})
+        event = read_events(server.index.index_dir)[-1]
+        assert event["payload"]["tokens_served"] == 0

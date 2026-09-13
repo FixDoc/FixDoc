@@ -291,6 +291,7 @@ class FixDocServer:
             "retrieval_served",
             {
                 "query": args["query"],
+                "tokens_served": sum(len(r.content) // 4 for r in results if r.content),
                 "filters": {k: args.get(k) for k in ("entry_type", "resource_type", "env")},
                 "served": [
                     {

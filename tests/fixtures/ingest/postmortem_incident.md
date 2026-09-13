@@ -2,19 +2,23 @@
 
 ## Summary
 
-Pods stayed Pending after adding a nodepool. The scheduler reported
-"0/14 nodes are available", blocking the application rollout.
+After scaling the user nodepool from 8 to 14 nodes, application pods sat in
+Pending for 40 minutes. The scheduler reported "0/14 nodes are available"
+although every node showed Ready.
 
-## Root cause
+## Root Cause
 
-Azure CNI reserves max_pods IPs for each node. The existing subnet had
-insufficient free addresses for the new pool.
+Azure CNI reserves max_pods IP addresses per node at creation time. The
+nodepool subnet had no free addresses left, so kubelet could not allocate
+pod IPs on the new nodes.
 
-## Resolution
+## Fix
 
-Add a dedicated subnet for the nodepool with enough addresses for the
-planned node count and pod capacity.
+Checked availableIpAddressCount on the nodepool subnet with az network vnet
+subnet show. It was zero. Moved the new nodepool to a dedicated subnet and
+lowered max_pods from 110 to 60 on future pools.
 
 ## Verification
 
-Pods scheduled successfully and availableIpAddressCount remained positive.
+Pods scheduled within a minute of the subnet change; availableIpAddressCount
+stayed positive through the next two scale events.

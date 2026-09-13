@@ -1,11 +1,11 @@
-# Rotate AKS certificates
+# Rotating AKS node certificates
 
-## When to use
+## Summary
 
-Cluster certificates are approaching their expiry date.
+Cert expiry alerts fire about two weeks before AKS node certificates lapse.
 
-## Steps
+## Fix
 
-1. Schedule a maintenance window.
-2. Execute `az aks rotate-certs` for the affected cluster.
-3. Refresh the local kubeconfig.
+1. Run az aks rotate-certs on the affected cluster.
+2. Wait for all nodepools to cycle; nodes drain one at a time.
+3. Confirm every node reports Ready and workloads rescheduled.
