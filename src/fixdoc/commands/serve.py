@@ -14,6 +14,8 @@ from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder
 from fixdoc.core.index import Index
 from fixdoc.mcp_server import FixDocServer
 
+from .config import resolve_model
+
 
 @click.command()
 @click.option(
@@ -36,15 +38,10 @@ from fixdoc.mcp_server import FixDocServer
 def serve(store_dir, model, namespace):
     """Serve the four FixDoc MCP tools over stdio."""
     root = Path(store_dir)
-    if model is None:
-        # Config precedence: flag > .fixdoc/config.yaml > built-in default.
-        config_path = root / ".fixdoc" / "config.yaml"
-        if config_path.exists():
-            model = (yaml.safe_load(config_path.read_text()) or {}).get("embedding_model")
-    model = model or DEFAULT_MODEL
     try:
+        model = resolve_model(root, model)
         embed_fn = get_embedder(model)
-    except RuntimeError as exc:
+    except (OSError, ValueError, RuntimeError, yaml.YAMLError) as exc:
         raise click.ClickException(str(exc))
-    index = Index(root / ".fixdoc-index", embed_fn, model)
-    FixDocServer(root / "knowledge", index, namespace=namespace).run()
+    with Index(root / ".fixdoc-index", embed_fn, model) as index:
+        FixDocServer(root / "knowledge", index, namespace=namespace).run()
