@@ -163,3 +163,48 @@ class TestCli:
             ["eval", "retrieval", "--cases", str(tmp_path / "nope.yaml"), "--store", str(tmp_path)],
         )
         assert result.exit_code != 0
+
+
+class TestGate:
+    """--min-recall turns the report into a CI gate: exit 1 below the floor or on any trap."""
+
+    def _run(self, tmp_path, monkeypatch, cases, *flags):
+        import importlib
+
+        store = seed(tmp_path)
+        path = write_cases(tmp_path, cases)
+        cmd = importlib.import_module("fixdoc.commands.eval_cmd")
+        monkeypatch.setattr(cmd, "_embedder", lambda: embed)
+        return CliRunner().invoke(
+            create_cli(),
+            ["eval", "retrieval", "--cases", str(path), "--store", str(store), *flags],
+        )
+
+    def test_passes_at_or_above_floor(self, tmp_path, monkeypatch):
+        cases = [{"query": "we grew the cluster", "relevant": ["fx_5ab8e001"]}]
+        result = self._run(tmp_path, monkeypatch, cases, "--min-recall", "1.0")
+        assert result.exit_code == 0, result.output
+
+    def test_fails_below_floor(self, tmp_path, monkeypatch):
+        cases = [{"query": "quota exhausted", "relevant": ["fx_5ab8e001"]}]  # a miss at k=1
+        result = self._run(tmp_path, monkeypatch, cases, "--min-recall", "1.0", "--k", "1")
+        assert result.exit_code == 1
+        assert "gate" in result.output.lower()
+        assert "Recall@1" in result.output
+
+    def test_any_trap_fails_regardless_of_recall(self, tmp_path, monkeypatch):
+        cases = [
+            {
+                "query": "quota exhausted",
+                "relevant": ["fx_c07a0001"],
+                "must_not_return": ["fx_5ab8e001"],  # both entries return -> trap fires
+            }
+        ]
+        result = self._run(tmp_path, monkeypatch, cases, "--min-recall", "0.0")
+        assert result.exit_code == 1
+        assert "trap" in result.output.lower()
+
+    def test_no_flag_is_report_only(self, tmp_path, monkeypatch):
+        cases = [{"query": "quota exhausted", "relevant": ["fx_5ab8e001"]}]
+        result = self._run(tmp_path, monkeypatch, cases, "--k", "1")
+        assert result.exit_code == 0, result.output

@@ -39,7 +39,13 @@ def eval_group():
     help="Store root containing knowledge/ to evaluate against.",
 )
 @click.option("--k", default=DEFAULT_K, show_default=True, help="Top-K window for recall.")
-def eval_retrieval(cases_path, store_dir, k):
+@click.option(
+    "--min-recall",
+    type=click.FloatRange(0.0, 1.0),
+    default=None,
+    help="Gate: exit 1 if Recall@K is below this floor or any trap fires. Omit to report only.",
+)
+def eval_retrieval(cases_path, store_dir, k, min_recall):
     """Score labeled queries against the real retrieval engine."""
     if not Path(cases_path).exists():
         raise click.ClickException(f"no cases file at {cases_path}")
@@ -68,3 +74,15 @@ def eval_retrieval(cases_path, store_dir, k):
         )
     for trap in report.trap_hits:
         click.echo(f"  TRAP  {trap['query']!r}: forbidden {trap['returned']} surfaced")
+    if min_recall is None:
+        return
+    # The gate: recall has a floor, traps have none. A fired trap is the
+    # classic RAG failure (confident, wrong-universe answer) and is never
+    # acceptable at any recall.
+    failures = []
+    if report.recall < min_recall:
+        failures.append(f"Recall@{k} {report.recall:.2f} is below the {min_recall:.2f} floor")
+    if report.traps_fired:
+        failures.append(f"{report.traps_fired} trap(s) fired (target: zero)")
+    if failures:
+        raise click.ClickException("gate failed: " + "; ".join(failures))

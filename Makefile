@@ -4,8 +4,11 @@ VENV := .venv
 PY_BOOT := $(shell command -v python3.13 || command -v python3.12 || command -v python3.11 || command -v python3.10 || command -v python3)
 PYTHON := $(VENV)/bin/python3
 PIP := $(VENV)/bin/pip
+# Retrieval gate floor. A ratchet, not a target: with 10 golden cases 0.9
+# allows one miss; raise it as the set grows. Traps always gate at zero.
+EVAL_MIN_RECALL := 0.9
 
-.PHONY: help setup test e2e lint fmt clean
+.PHONY: help setup test e2e eval lint fmt clean
 
 help: ## List all targets with descriptions
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -24,6 +27,9 @@ test: ## Run the test suite
 
 e2e: ## End-to-end check with real embeddings (needs [embed] installed)
 	@$(PYTHON) scripts/e2e_mcp.py
+
+eval: ## Retrieval eval with real embeddings, gated on Recall@3 and traps
+	@$(VENV)/bin/fixdoc eval retrieval --min-recall $(EVAL_MIN_RECALL)
 
 lint: ## Ruff check
 	@$(VENV)/bin/ruff check src/ tests/
