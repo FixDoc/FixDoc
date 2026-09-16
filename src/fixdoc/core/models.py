@@ -13,6 +13,7 @@ from typing import Optional
 import yaml
 
 TYPE_PREFIXES = {"fix": "fx", "playbook": "pb", "insight": "in"}
+STATUSES = ("validated", "quarantined", "deprecated", "rejected")
 
 REQUIRED_SECTIONS = {
     "fix": ["Symptom", "Root cause", "Fix", "Verification"],
@@ -69,6 +70,8 @@ class Entry:
         if self.type not in TYPE_PREFIXES:
             return [f"unknown type: {self.type!r}"]
         problems = []
+        if self.status not in STATUSES:
+            problems.append("unknown entry status")
         prefix = TYPE_PREFIXES[self.type] + "_"
         if not self.id.startswith(prefix):
             problems.append(f"id {self.id!r} should start with {prefix!r} for type {self.type}")

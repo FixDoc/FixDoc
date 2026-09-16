@@ -82,6 +82,24 @@ def main():
     store = Path(tempfile.mkdtemp(prefix="fixdoc-e2e-"))
     seed(store)
 
+    def run_index(*flags):
+        result = subprocess.run(
+            [fixdoc, "index", "--store", str(store), "--json", *flags],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        return json.loads(result.stdout)
+
+    assert run_index()["added"] == 2
+    assert run_index()["unchanged"] == 2
+    assert run_index("--rebuild")["updated"] == 2
+    stats = run_index("--stats")
+    assert stats["entries"]["by_status"] == {"validated": 2}
+    assert stats["last_run"]["operation"] == "rebuild"
+    print("Index create, incremental update, rebuild, and stats OK")
+
     def call(name, args, i):
         return {
             "jsonrpc": "2.0",
