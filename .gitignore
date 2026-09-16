@@ -10,6 +10,7 @@ CLAUDE.md
 !prd.md
 !docs/**/*.md
 !tests/**/*.md
+!evals/**/*.md
 .fixdoc-pending
 .fixdoc-test/
 build/
