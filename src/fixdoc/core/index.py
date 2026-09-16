@@ -9,13 +9,13 @@ import time
 import uuid
 from array import array
 from collections import defaultdict, namedtuple
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from sqlalchemy import MetaData, Table, bindparam, func, inspect, select
 
-from .database import SCHEMA_VERSION, entries, meta, metadata, open_engine
+from .database import SCHEMA, SCHEMA_VERSION, open_database, transaction
 from .models import TYPE_PREFIXES, Entry
 
 _ENTRY_FILENAME_RE = re.compile(r"^(?:%s)_[0-9a-f]{8}\.md$" % "|".join(TYPE_PREFIXES.values()))
@@ -27,10 +27,19 @@ Row = namedtuple(
 )
 
 
+def _has_table(connection, name):
+    return (
+        connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+        ).fetchone()
+        is not None
+    )
+
+
 def _meta_values(connection):
-    if not inspect(connection).has_table("meta"):
+    if not _has_table(connection, "meta"):
         return {}
-    return dict(connection.execute(select(meta)).tuples().all())
+    return dict(connection.execute("SELECT key, value FROM meta"))
 
 
 def _hash(text):
@@ -87,12 +96,12 @@ class Index:
         self.index_dir.mkdir(parents=True, exist_ok=True)
         self.embed_fn = embed_fn
         self.model_name = model_name
-        self.engine = open_engine(self.index_dir / "index.db")
+        self.db = open_database(self.index_dir / "index.db")
         # Opening an Index never invalidates committed data. A model/schema
         # change takes effect only when sync publishes a complete replacement.
 
     def close(self):
-        self.engine.dispose()
+        self.db.close()
 
     def __enter__(self):
         return self
@@ -117,11 +126,16 @@ class Index:
         store_dir = Path(store_dir)
         started = time.monotonic()
         for attempt in range(3):
-            with self.engine.connect() as connection:
+            with transaction(self.db) as connection:
                 previous = _meta_values(connection)
                 compatible = self._compatible(previous)
                 known = (
-                    {r["id"]: dict(r) for r in connection.execute(select(entries)).mappings()}
+                    {
+                        r["id"]: dict(r)
+                        for r in connection.execute(
+                            "SELECT id, path, content_hash, search_hash FROM entries"
+                        )
+                    }
                     if compatible
                     else {}
                 )
@@ -132,34 +146,35 @@ class Index:
             else:
                 paths = _entry_paths(store_dir)
             full = rebuild or not compatible
-            rows, stats = self._prepare(store_dir, known, full, paths)
-            with self.engine.connect().execution_options(writer=True) as connection:
-                with connection.begin():
-                    if _meta_values(connection) != previous:
-                        continue
-                    self._publish(connection, rows, known, previous, full)
-                    report = {
-                        "operation": "rebuild" if full else "sync",
-                        "completed_at": datetime.now(timezone.utc).isoformat(),
-                        "duration_seconds": round(time.monotonic() - started, 6),
-                        **stats,
-                    }
-                    values = {
-                        "schema_version": SCHEMA_VERSION,
-                        "embedding_model": self.model_name,
-                        "generation": uuid.uuid4().hex,
-                        "last_run": json.dumps(report),
-                    }
-                    connection.execute(meta.delete())
-                    connection.execute(
-                        meta.insert(), [{"key": k, "value": v} for k, v in values.items()]
-                    )
-                return stats
+            rows, stats = self._prepare(store_dir, known, full, paths, previous)
+            if rows is None:
+                continue
+            with transaction(self.db, writer=True) as connection:
+                if _meta_values(connection) != previous:
+                    continue
+                self._publish(connection, rows, known, previous, full)
+                report = {
+                    "operation": "rebuild" if full else "sync",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "duration_seconds": round(time.monotonic() - started, 6),
+                    **stats,
+                }
+                values = {
+                    "schema_version": SCHEMA_VERSION,
+                    "embedding_model": self.model_name,
+                    "generation": uuid.uuid4().hex,
+                    "last_run": json.dumps(report),
+                }
+                connection.execute("DELETE FROM meta")
+                connection.executemany(
+                    "INSERT INTO meta (key, value) VALUES (?, ?)", values.items()
+                )
+            return stats
         raise RuntimeError(
             "Index changed during three sync attempts; retry when other writers finish."
         )
 
-    def _prepare(self, store_dir, known, full, paths):
+    def _prepare(self, store_dir, known, full, paths, previous):
         stats = {"added": 0, "updated": 0, "removed": 0, "unchanged": 0, "skipped": []}
         errors, prepared, claims = {}, {}, defaultdict(list)
         for path in paths:
@@ -168,7 +183,7 @@ class Index:
                 text = path.read_text(encoding="utf-8")
                 content_hash = _hash(text)
                 old = known.get(path.stem)
-                if old and old["content_hash"] == content_hash and not full:
+                if old and old["content_hash"] == content_hash and old["path"] == rel and not full:
                     claims[old["id"]].append(rel)
                     prepared[rel] = (dict(old, path=rel), None)
                     continue
@@ -209,23 +224,47 @@ class Index:
                 for rel in paths:
                     errors[rel] = f"duplicate id {entry_id}: {', '.join(paths)}"
 
-        rows = {}
+        rows, reuse, to_embed = {}, [], []
+        unchanged_id = None
         for rel, (row, search_text) in prepared.items():
             if rel in errors:
                 continue
             old = known.get(row["id"])
             unchanged = old == row and not full
-            if "embedding" not in row:
-                if old and old["search_hash"] == row["search_hash"] and not full:
-                    row["embedding"] = old["embedding"]
-                else:
-                    vector = array("f", self.embed_fn(search_text))
-                    if not vector or any(not math.isfinite(v) for v in vector):
-                        raise ValueError(f"Embedding for {rel} must be a nonempty finite vector")
-                    row["embedding"] = vector.tobytes()
+            if unchanged:
+                unchanged_id = row["id"]
+            elif old and old["search_hash"] == row["search_hash"] and not full:
+                reuse.append(row)
+            else:
+                to_embed.append((rel, row, search_text))
             rows[row["id"]] = row
             stats["unchanged" if unchanged else "updated" if old else "added"] += 1
-        if len({len(row["embedding"]) for row in rows.values()}) > 1:
+
+        dimensions = set()
+        if reuse or (unchanged_id is not None and to_embed):
+            with transaction(self.db) as connection:
+                # Cached vectors must belong to the same generation as the hashes.
+                if _meta_values(connection) != previous:
+                    return None, stats
+                for row in reuse:
+                    row["embedding"] = connection.execute(
+                        "SELECT embedding FROM entries WHERE id = ?", (row["id"],)
+                    ).fetchone()[0]
+                if unchanged_id is not None:
+                    # Published vectors have a uniform dimension; read only its size.
+                    dimensions.add(
+                        connection.execute(
+                            "SELECT length(embedding) FROM entries WHERE id = ?", (unchanged_id,)
+                        ).fetchone()[0]
+                    )
+        # Model inference stays outside transactions so other writers can commit.
+        for rel, row, search_text in to_embed:
+            vector = array("f", self.embed_fn(search_text))
+            if not vector or any(not math.isfinite(v) for v in vector):
+                raise ValueError(f"Embedding for {rel} must be a nonempty finite vector")
+            row["embedding"] = vector.tobytes()
+        dimensions.update(len(row["embedding"]) for row in rows.values() if "embedding" in row)
+        if len(dimensions) > 1:
             raise ValueError("Embedding dimensions differ; check the model and run index --rebuild")
         stats["removed"] = len(known.keys() - rows.keys())
         stats["skipped"] = sorted(errors)
@@ -234,10 +273,11 @@ class Index:
 
     def _publish(self, connection, rows, known, previous, full):
         if previous.get("schema_version") != SCHEMA_VERSION:
-            entries.drop(connection, checkfirst=True)
-        metadata.create_all(connection)
+            connection.execute("DROP TABLE IF EXISTS entries")
+        for statement in SCHEMA:
+            connection.execute(statement)
         if full:
-            connection.execute(entries.delete())
+            connection.execute("DELETE FROM entries")
             changed = list(rows.values())
         else:
             # Delete changed rows before inserting, so path moves cannot
@@ -245,48 +285,64 @@ class Index:
             # variable limit even for large stores.
             affected = [key for key in known if rows.get(key) != known[key]]
             if affected:
-                connection.execute(
-                    entries.delete().where(entries.c.id == bindparam("entry_id")),
-                    [{"entry_id": key} for key in affected],
+                connection.executemany(
+                    "DELETE FROM entries WHERE id = ?", [(key,) for key in affected]
                 )
             changed = [row for key, row in rows.items() if known.get(key) != row]
         if changed:
-            connection.execute(entries.insert(), changed)
+            connection.executemany(
+                "INSERT INTO entries (id, path, content_hash, search_hash, type, status, "
+                "resource_type, title, occurrences, confidence, created, env_scope, match_keys, "
+                "embedding) VALUES (:id, :path, :content_hash, :search_hash, :type, :status, "
+                ":resource_type, :title, :occurrences, :confidence, :created, :env_scope, "
+                ":match_keys, :embedding)",
+                [
+                    dict(
+                        row,
+                        env_scope=json.dumps(row["env_scope"]),
+                        match_keys=json.dumps(row["match_keys"]),
+                    )
+                    for row in changed
+                ],
+            )
 
-    def _read(self, statement):
-        with self.engine.connect() as connection:
+    def _read(self, statement, parameters=()):
+        with transaction(self.db) as connection:
             if not self._compatible(_meta_values(connection)):
                 return []
-            return connection.execute(statement).all()
+            return connection.execute(statement, parameters).fetchall()
 
     def candidates(self, entry_type):
         """(Candidate, vector) pairs for dedup: live entries of one type."""
-        query = (
-            select(entries.c.id, entries.c.type, entries.c.resource_type, entries.c.embedding)
-            .where(
-                entries.c.type == entry_type,
-                entries.c.status.not_in(("deprecated", "rejected")),
-            )
-            .order_by(entries.c.id)
+        rows = self._read(
+            "SELECT id, type, resource_type, embedding FROM entries "
+            "WHERE type = ? AND status NOT IN ('deprecated', 'rejected') ORDER BY id",
+            (entry_type,),
         )
-        return [(Candidate(*r[:3]), list(array("f", r[3]))) for r in self._read(query)]
+        return [(Candidate(*r[:3]), list(array("f", r[3]))) for r in rows]
 
     def path_for(self, entry_id):
-        rows = self._read(select(entries.c.path).where(entries.c.id == entry_id))
+        rows = self._read("SELECT path FROM entries WHERE id = ?", (entry_id,))
         return rows[0][0] if rows else None
 
     def live(self, entry_type=None, include_quarantined=False):
         """Full rows for retrieval: validated (optionally + quarantined)."""
         statuses = ["validated"] + (["quarantined"] if include_quarantined else [])
-        fields = list(Row._fields[:-1])
         query = (
-            select(*(entries.c[key] for key in fields), entries.c.embedding)
-            .where(entries.c.status.in_(statuses))
-            .order_by(entries.c.id)
+            "SELECT id, path, type, status, resource_type, title, occurrences, confidence, "
+            "created, env_scope, match_keys, embedding FROM entries "
+            "WHERE status IN (%s)" % ",".join("?" for _ in statuses)
         )
+        parameters = list(statuses)
         if entry_type:
-            query = query.where(entries.c.type == entry_type)
-        return [Row(*r[:-1], list(array("f", r[-1]))) for r in self._read(query)]
+            query += " AND type = ?"
+            parameters.append(entry_type)
+        return [
+            Row(
+                *r[:9], json.loads(r[9] or "[]"), json.loads(r[10] or "{}"), list(array("f", r[11]))
+            )
+            for r in self._read(query + " ORDER BY id", parameters)
+        ]
 
 
 def index_stats(index_dir):
@@ -295,32 +351,28 @@ def index_stats(index_dir):
     result = {"exists": path.is_file(), "path": str(path)}
     if not result["exists"]:
         return result
-    engine = open_engine(path, readonly=True)
-    try:
-        with engine.connect() as connection:
-            values = _meta_values(connection)
-            # Reflect for inspection only: older schemas remain observable.
-            counts = {"total": 0, "by_type": {}, "by_status": {}}
-            if inspect(connection).has_table("entries"):
-                table = Table("entries", MetaData(), autoload_with=connection)
-                counts["total"] = connection.scalar(select(func.count()).select_from(table))
-                for field in ("type", "status"):
-                    if field in table.c:
-                        counts[f"by_{field}"] = dict(
-                            connection.execute(
-                                select(table.c[field], func.count()).group_by(table.c[field])
-                            )
-                            .tuples()
-                            .all()
+    with (
+        closing(open_database(path, readonly=True)) as database,
+        transaction(database) as connection,
+    ):
+        values = _meta_values(connection)
+        counts = {"total": 0, "by_type": {}, "by_status": {}}
+        if _has_table(connection, "entries"):
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(entries)")}
+            counts["total"] = connection.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+            for field in ("type", "status"):
+                if field in columns:
+                    counts[f"by_{field}"] = dict(
+                        connection.execute(
+                            f"SELECT {field}, COUNT(*) FROM entries GROUP BY {field}"
                         )
-            result.update(
-                size_bytes=path.stat().st_size,
-                schema_version=values.get("schema_version"),
-                embedding_model=values.get("embedding_model"),
-                needs_rebuild=values.get("schema_version") != SCHEMA_VERSION,
-                entries=counts,
-                last_run=json.loads(values["last_run"]) if values.get("last_run") else None,
-            )
-    finally:
-        engine.dispose()
+                    )
+        result.update(
+            size_bytes=path.stat().st_size,
+            schema_version=values.get("schema_version"),
+            embedding_model=values.get("embedding_model"),
+            needs_rebuild=values.get("schema_version") != SCHEMA_VERSION,
+            entries=counts,
+            last_run=json.loads(values["last_run"]) if values.get("last_run") else None,
+        )
     return result

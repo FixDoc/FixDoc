@@ -1,10 +1,10 @@
 """Tests for the embedding backend seam and the `fixdoc serve` command."""
 
 import importlib
+import sqlite3
 
 import pytest
 from click.testing import CliRunner
-from sqlalchemy.exc import SQLAlchemyError
 
 from fixdoc.cli import create_cli
 from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder
@@ -46,7 +46,7 @@ class TestServeCommand:
         [
             (OSError("index is not writable"), "index is not writable"),
             (
-                SQLAlchemyError("private entry text"),
+                sqlite3.DatabaseError("private entry text"),
                 "Database operation failed; check index permissions and other writers.",
             ),
         ],

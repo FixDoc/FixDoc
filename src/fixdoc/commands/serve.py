@@ -5,11 +5,11 @@ config; it reads JSON-RPC on stdin and answers on stdout, so this command
 must never print to stdout itself.
 """
 
+import sqlite3
 from pathlib import Path
 
 import click
 import yaml
-from sqlalchemy.exc import SQLAlchemyError
 
 from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder, resolve_model
 from fixdoc.core.index import Index
@@ -42,8 +42,15 @@ def serve(store_dir, model, namespace):
         embed_fn = get_embedder(model)
         with Index(root / ".fixdoc-index", embed_fn, model) as index:
             FixDocServer(root / "knowledge", index, namespace=namespace).run()
-    except (click.UsageError, OSError, ValueError, RuntimeError, yaml.YAMLError, SQLAlchemyError) as exc:
-        if isinstance(exc, SQLAlchemyError):
+    except (
+        click.UsageError,
+        OSError,
+        ValueError,
+        RuntimeError,
+        yaml.YAMLError,
+        sqlite3.Error,
+    ) as exc:
+        if isinstance(exc, sqlite3.Error):
             message = "Database operation failed; check index permissions and other writers."
         elif isinstance(exc, yaml.YAMLError):
             message = "Invalid YAML in .fixdoc/config.yaml."

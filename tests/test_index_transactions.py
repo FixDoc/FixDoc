@@ -5,20 +5,120 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
 import pytest
-from sqlalchemy import event, select
 
-from fixdoc.core.database import entries, meta
+from fixdoc.core.database import transaction
 from fixdoc.core.events import log_event
 from fixdoc.core.index import Index, index_stats
 from tests.test_core_index import CountingEmbed, make_fix, write_entry
 
 
 def snapshot(index):
-    with index.engine.connect() as connection:
+    with transaction(index.db) as connection:
         return (
-            [dict(row) for row in connection.execute(select(entries)).mappings()],
-            dict(connection.execute(select(meta)).tuples().all()),
+            [dict(row) for row in connection.execute("SELECT * FROM entries")],
+            dict(connection.execute("SELECT key, value FROM meta")),
         )
+
+
+def test_unchanged_sync_reads_only_entry_fingerprints(tmp_path):
+    store = tmp_path / "knowledge"
+    write_entry(store, make_fix(status="validated", env_scope=["prod"]))
+    embed = CountingEmbed()
+    with Index(tmp_path / "idx", embed, "test") as index:
+        index.sync(store)
+        before = snapshot(index)[0]
+        columns = set()
+
+        def track_reads(action, table, column, database, trigger):
+            if action == sqlite3.SQLITE_READ and table == "entries":
+                columns.add(column)
+            return sqlite3.SQLITE_OK
+
+        index.db.set_authorizer(track_reads)
+        try:
+            report = index.sync(store)
+        finally:
+            index.db.set_authorizer(None)
+
+        assert columns == {"id", "path", "content_hash", "search_hash"}
+        assert report["unchanged"] == 1
+        assert snapshot(index)[0] == before
+        assert len(embed.calls) == 1
+
+
+@pytest.mark.parametrize("change", ["metadata", "move", "search_text", "rebuild"])
+def test_sync_fetches_embeddings_only_for_reuse(tmp_path, change):
+    store = tmp_path / "knowledge"
+    entry = make_fix()
+    path = write_entry(store, entry)
+    write_entry(store, make_fix("fx_00000002"))
+    embed = CountingEmbed()
+    with Index(tmp_path / "idx", embed, "test") as index:
+        index.sync(store)
+        if change == "metadata":
+            entry.status = "validated"
+            path.write_text(entry.to_markdown())
+        elif change == "move":
+            moved = store / "other" / path.name
+            moved.parent.mkdir()
+            path.rename(moved)
+        elif change == "search_text":
+            entry.title = "Changed symptom"
+            path.write_text(entry.to_markdown())
+
+        queries = []
+        index.db.set_trace_callback(queries.append)
+        try:
+            report = index.sync(store, rebuild=change == "rebuild")
+        finally:
+            index.db.set_trace_callback(None)
+
+        reads = [query for query in queries if query.startswith("SELECT embedding ")]
+        if change in ("metadata", "move"):
+            assert reads == [f"SELECT embedding FROM entries WHERE id = '{entry.id}'"]
+            assert len(embed.calls) == 2
+        else:
+            assert reads == []
+            assert len(embed.calls) == (4 if change == "rebuild" else 3)
+        assert report["updated"] == (2 if change == "rebuild" else 1)
+        assert report["unchanged"] == (0 if change == "rebuild" else 1)
+
+
+@pytest.mark.parametrize("replacement", ["new_model", "empty_store"])
+def test_cached_embedding_fetch_retries_if_generation_changed(tmp_path, monkeypatch, replacement):
+    store = tmp_path / "knowledge"
+    entry = make_fix()
+    path = write_entry(store, entry)
+    embed = CountingEmbed()
+    with Index(tmp_path / "idx", embed, "test") as index:
+        index.sync(store)
+        entry.status = "validated"
+        path.write_text(entry.to_markdown())
+        prepare = index._prepare
+        raced = False
+
+        def prepare_after_other_writer(*args):
+            nonlocal raced
+            if not raced:
+                raced = True
+                model = "new" if replacement == "new_model" else "test"
+                other_store = store
+                if replacement == "empty_store":
+                    other_store = tmp_path / "empty"
+                    other_store.mkdir()
+                with Index(index.index_dir, lambda text: [1.0, 2.0, 3.0], model) as other:
+                    other.sync(other_store)
+            return prepare(*args)
+
+        monkeypatch.setattr(index, "_prepare", prepare_after_other_writer)
+        report = index.sync(store)
+
+        assert raced
+        assert report["added"] == 1
+        assert len(embed.calls) == 2
+        assert index.live()[0].status == "validated"
+        assert len(index.live()[0].vector) == 2
+        assert index_stats(index.index_dir)["embedding_model"] == "test"
 
 
 def test_metadata_body_and_move_reuse_embeddings(tmp_path):
@@ -70,7 +170,7 @@ def test_failed_embedding_preserves_rows_and_metadata(tmp_path, rebuild, model):
 
 
 @pytest.mark.parametrize("rebuild", [False, True])
-def test_failure_after_writes_rolls_back_and_connection_recovers(tmp_path, rebuild):
+def test_failure_after_writes_rolls_back_and_connection_recovers(tmp_path, rebuild, monkeypatch):
     store = tmp_path / "knowledge"
     path = write_entry(store, make_fix())
     with Index(tmp_path / "idx", CountingEmbed(), "test") as index:
@@ -78,19 +178,21 @@ def test_failure_after_writes_rolls_back_and_connection_recovers(tmp_path, rebui
         before = snapshot(index)
         path.write_text(make_fix(title="new").to_markdown())
 
-        def fail_metadata(connection, cursor, statement, parameters, context, executemany):
-            if statement.startswith("INSERT INTO meta"):
-                raise RuntimeError("disk write failed")
+        publish = index._publish
 
-        event.listen(index.engine, "before_cursor_execute", fail_metadata)
-        with pytest.raises(RuntimeError, match="disk write failed"):
-            index.sync(store, rebuild=rebuild)
-        event.remove(index.engine, "before_cursor_execute", fail_metadata)
+        def fail_after_publish(*args):
+            publish(*args)
+            raise RuntimeError("disk write failed")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(index, "_publish", fail_after_publish)
+            with pytest.raises(RuntimeError, match="disk write failed"):
+                index.sync(store, rebuild=rebuild)
         assert snapshot(index) == before
         assert index.sync(store)["updated"] == 1
 
 
-def test_schema_rebuild_ddl_is_rolled_back_on_failure(tmp_path):
+def test_schema_rebuild_ddl_is_rolled_back_on_failure(tmp_path, monkeypatch):
     directory = tmp_path / "idx"
     directory.mkdir()
     with sqlite3.connect(directory / "index.db") as db:
@@ -101,19 +203,20 @@ def test_schema_rebuild_ddl_is_rolled_back_on_failure(tmp_path):
     store = tmp_path / "knowledge"
     write_entry(store, make_fix())
     with Index(directory, CountingEmbed(), "test") as index:
+        publish = index._publish
 
-        def fail_insert(connection, cursor, statement, parameters, context, executemany):
-            if statement.startswith("INSERT INTO entries"):
-                raise RuntimeError("failed after replacing schema")
+        def fail_after_publish(*args):
+            publish(*args)
+            raise RuntimeError("failed after replacing schema")
 
-        event.listen(index.engine, "before_cursor_execute", fail_insert)
-        with pytest.raises(RuntimeError, match="replacing schema"):
-            index.sync(store)
+        with monkeypatch.context() as patch:
+            patch.setattr(index, "_publish", fail_after_publish)
+            with pytest.raises(RuntimeError, match="replacing schema"):
+                index.sync(store)
         with sqlite3.connect(directory / "index.db") as db:
             assert db.execute("SELECT * FROM entries").fetchall() == [("old", "keep me")]
             assert db.execute("SELECT * FROM meta").fetchall() == [("schema_version", "old")]
         assert index_stats(directory)["needs_rebuild"] is True
-        event.remove(index.engine, "before_cursor_execute", fail_insert)
         assert index.sync(store)["added"] == 1
 
 

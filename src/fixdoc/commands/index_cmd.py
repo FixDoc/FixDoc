@@ -1,13 +1,13 @@
 """Build, rebuild, or inspect the derived knowledge index."""
 
 import json
+import sqlite3
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 
 import click
 import yaml
-from sqlalchemy.exc import SQLAlchemyError
 
 from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder, resolve_model
 from fixdoc.core.index import Index, index_stats
@@ -94,11 +94,10 @@ def index_command(ctx, store_dir, rebuild, stats, model, json_output):
         ValueError,
         RuntimeError,
         yaml.YAMLError,
-        SQLAlchemyError,
+        sqlite3.Error,
     ) as exc:
         code = 2 if isinstance(exc, click.UsageError) else 1
-        # SQLAlchemy exception strings can include entry text in parameters.
-        if isinstance(exc, SQLAlchemyError):
+        if isinstance(exc, sqlite3.Error):
             message = "Database operation failed; check index permissions and other writers."
         elif isinstance(exc, yaml.YAMLError):
             message = "Invalid YAML in .fixdoc/config.yaml."
