@@ -58,8 +58,6 @@ def _validate(entry, path):
         raise ValueError("unknown entry type")
     if not isinstance(entry.title, str) or not entry.title.strip():
         raise ValueError("title must be a nonempty string")
-    if entry.status not in ("validated", "quarantined", "deprecated", "rejected"):
-        raise ValueError("unknown entry status")
     if type(entry.occurrences) is not int or not 0 <= entry.occurrences <= 2**63 - 1:
         raise ValueError("occurrences must be a nonnegative SQLite integer")
     if entry.confidence is not None and (

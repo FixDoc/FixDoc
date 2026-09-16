@@ -160,6 +160,14 @@ class TestValidate:
     def test_valid_fix_has_no_problems(self):
         assert make_fix().validate() == []
 
+    @pytest.mark.parametrize("status", ["validated", "quarantined", "deprecated", "rejected"])
+    def test_lifecycle_statuses_are_valid(self, status):
+        assert make_fix(status=status).validate() == []
+
+    @pytest.mark.parametrize("status", ["draft", "", None, [], {}])
+    def test_invalid_status_reported(self, status):
+        assert "unknown entry status" in make_fix(status=status).validate()
+
     def test_missing_required_section_reported(self):
         entry = make_fix(sections={"Symptom": "Pods pending."})
         problems = entry.validate()

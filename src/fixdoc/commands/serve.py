@@ -9,12 +9,11 @@ from pathlib import Path
 
 import click
 import yaml
+from sqlalchemy.exc import SQLAlchemyError
 
-from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder
+from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder, resolve_model
 from fixdoc.core.index import Index
 from fixdoc.mcp_server import FixDocServer
-
-from .config import resolve_model
 
 
 @click.command()
@@ -41,7 +40,13 @@ def serve(store_dir, model, namespace):
     try:
         model = resolve_model(root, model)
         embed_fn = get_embedder(model)
-    except (OSError, ValueError, RuntimeError, yaml.YAMLError) as exc:
-        raise click.ClickException(str(exc))
-    with Index(root / ".fixdoc-index", embed_fn, model) as index:
-        FixDocServer(root / "knowledge", index, namespace=namespace).run()
+        with Index(root / ".fixdoc-index", embed_fn, model) as index:
+            FixDocServer(root / "knowledge", index, namespace=namespace).run()
+    except (click.UsageError, OSError, ValueError, RuntimeError, yaml.YAMLError, SQLAlchemyError) as exc:
+        if isinstance(exc, SQLAlchemyError):
+            message = "Database operation failed; check index permissions and other writers."
+        elif isinstance(exc, yaml.YAMLError):
+            message = "Invalid YAML in .fixdoc/config.yaml."
+        else:
+            message = str(exc)
+        raise click.ClickException(message) from exc

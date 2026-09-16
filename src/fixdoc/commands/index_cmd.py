@@ -9,10 +9,8 @@ import click
 import yaml
 from sqlalchemy.exc import SQLAlchemyError
 
-from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder
+from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder, resolve_model
 from fixdoc.core.index import Index, index_stats
-
-from .config import resolve_model
 
 
 def _counts(report):

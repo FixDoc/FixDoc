@@ -4,6 +4,7 @@ import importlib
 
 import pytest
 from click.testing import CliRunner
+from sqlalchemy.exc import SQLAlchemyError
 
 from fixdoc.cli import create_cli
 from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder
@@ -39,6 +40,30 @@ class TestServeCommand:
         result = runner.invoke(create_cli(), ["serve", "--store", str(tmp_path)])
         assert result.exit_code != 0
         assert "fixdoc[embed]" in result.output
+
+    @pytest.mark.parametrize(
+        "error, message",
+        [
+            (OSError("index is not writable"), "index is not writable"),
+            (
+                SQLAlchemyError("private entry text"),
+                "Database operation failed; check index permissions and other writers.",
+            ),
+        ],
+    )
+    def test_index_failure_is_reported_on_stderr(self, tmp_path, monkeypatch, error, message):
+        serve_mod = importlib.import_module("fixdoc.commands.serve")
+        monkeypatch.setattr(serve_mod, "get_embedder", lambda model: None)
+
+        def fail_index(*args):
+            raise error
+
+        monkeypatch.setattr(serve_mod, "Index", fail_index)
+        result = CliRunner().invoke(create_cli(), ["serve", "--store", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        assert result.stderr == f"Error: {message}\n"
 
 
 class TestEmbedderOutput:
