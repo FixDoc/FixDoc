@@ -54,3 +54,12 @@ cloud-native 50-500 eng, Terraform+K8s on AWS/Azure, real on-call, engineers
 already on coding agents. White paper (2pp PDF + artifact) written. Website
 remarketed earlier (#16) now gains a waitlist signup.
 
+## 2026-09-15 — Eval harness: CI gate (PRs #30, #31, this)
+
+Retrieval eval runner (#30) and 10-case golden seed set over a 14-entry
+fictional store (#31) get a gate: `fixdoc eval retrieval --min-recall X`
+exits 1 below the floor or on any fired trap; `make eval` holds the floor
+(0.9, a ratchet); first CI workflow runs lint, tests, and the gate on every
+PR with the embedding model cached. Baseline on the seed set: Recall@3
+10/10, traps 0/3. Next: expand the golden set to ~30 harder cases (data-only
+PR, labeling is the review), then hybrid keyword retrieval measured against it.
