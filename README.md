@@ -99,6 +99,18 @@ Everything an agent writes starts `quarantined` and is invisible to retrieval
 until a human promotes it to `validated` — normally a pull request review.
 There is no delete or admin tool by design.
 
+## Indexing
+
+FixDoc updates the index automatically before searches. To manage it yourself:
+
+```bash
+fixdoc index             # update the index
+fixdoc index --rebuild   # rebuild from your knowledge files
+fixdoc index --stats     # view index statistics
+```
+
+Use `fixdoc index --help` for options, including `--store`, `--model`, and `--json`.
+
 ## The store
 
 ```

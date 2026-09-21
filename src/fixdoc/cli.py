@@ -1,14 +1,22 @@
 """CLI assembly for fixdoc.
 
-Two commands, on purpose: init makes a repo agent-ready, serve runs the MCP
-server. Agents do the day-to-day work through the four MCP tools; humans
-review knowledge in git. Ops commands (status, promote, doctor) join here
-as they earn their place.
+Init prepares a repo, ingest seeds knowledge, index manages derived state,
+and serve runs MCP. Agents do day-to-day work through the four MCP tools;
+humans review knowledge in git.
 """
 
 import click
 
-from .commands import doctor, import_slack, ingest, init_command, promote, serve, status
+from .commands import (
+    doctor,
+    import_slack,
+    index_command,
+    ingest,
+    init_command,
+    promote,
+    serve,
+    status,
+)
 
 
 def create_cli() -> click.Group:
@@ -20,6 +28,7 @@ def create_cli() -> click.Group:
     cli.add_command(init_command)
     cli.add_command(serve)
     cli.add_command(ingest)
+    cli.add_command(index_command)
     cli.add_command(import_slack)
     cli.add_command(status)
     cli.add_command(promote)

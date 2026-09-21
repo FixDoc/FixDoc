@@ -54,3 +54,9 @@ cloud-native 50-500 eng, Terraform+K8s on AWS/Azure, real on-call, engineers
 already on coding agents. White paper (2pp PDF + artifact) written. Website
 remarketed earlier (#16) now gains a waitlist signup.
 
+## 2026-09-20 — Index management CLI (PR: [#32](https://github.com/FixDoc/FixDoc/pull/32))
+
+`fixdoc index`: incremental updates, rebuilds, and read-only stats with JSON
+output. Keeps SQLite rebuildable from markdown, reuses embeddings, validates
+entries, and adds atomic sync with rollback and concurrent-writer retries.
+Shares MCP model configuration; covered by CLI and real-embedding E2E tests.

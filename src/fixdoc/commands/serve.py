@@ -5,12 +5,13 @@ config; it reads JSON-RPC on stdin and answers on stdout, so this command
 must never print to stdout itself.
 """
 
+import sqlite3
 from pathlib import Path
 
 import click
 import yaml
 
-from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder
+from fixdoc.core.embedding import DEFAULT_MODEL, get_embedder, resolve_model
 from fixdoc.core.index import Index
 from fixdoc.mcp_server import FixDocServer
 
@@ -36,15 +37,23 @@ from fixdoc.mcp_server import FixDocServer
 def serve(store_dir, model, namespace):
     """Serve the four FixDoc MCP tools over stdio."""
     root = Path(store_dir)
-    if model is None:
-        # Config precedence: flag > .fixdoc/config.yaml > built-in default.
-        config_path = root / ".fixdoc" / "config.yaml"
-        if config_path.exists():
-            model = (yaml.safe_load(config_path.read_text()) or {}).get("embedding_model")
-    model = model or DEFAULT_MODEL
     try:
+        model = resolve_model(root, model)
         embed_fn = get_embedder(model)
-    except RuntimeError as exc:
-        raise click.ClickException(str(exc))
-    index = Index(root / ".fixdoc-index", embed_fn, model)
-    FixDocServer(root / "knowledge", index, namespace=namespace).run()
+        with Index(root / ".fixdoc-index", embed_fn, model) as index:
+            FixDocServer(root / "knowledge", index, namespace=namespace).run()
+    except (
+        click.UsageError,
+        OSError,
+        ValueError,
+        RuntimeError,
+        yaml.YAMLError,
+        sqlite3.Error,
+    ) as exc:
+        if isinstance(exc, sqlite3.Error):
+            message = "Database operation failed; check index permissions and other writers."
+        elif isinstance(exc, yaml.YAMLError):
+            message = "Invalid YAML in .fixdoc/config.yaml."
+        else:
+            message = str(exc)
+        raise click.ClickException(message) from exc
